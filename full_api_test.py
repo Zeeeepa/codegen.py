@@ -731,31 +731,31 @@ if __name__ == "__main__":
     suite = unittest.TestSuite()
     
     if args.category in ["config", "all"]:
-        suite.addTest(unittest.makeSuite(TestClientConfiguration))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestClientConfiguration))
     
     if args.category in ["utils", "all"]:
-        suite.addTest(unittest.makeSuite(TestUtilityClasses))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestUtilityClasses))
     
     if args.category in ["models", "all"]:
-        suite.addTest(unittest.makeSuite(TestDataModels))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestDataModels))
     
     if args.category in ["exceptions", "all"]:
-        suite.addTest(unittest.makeSuite(TestExceptions))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestExceptions))
     
     if args.category in ["basic", "all"]:
-        suite.addTest(unittest.makeSuite(TestClientBasicFunctionality))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestClientBasicFunctionality))
     
     if args.category in ["api", "all"]:
-        suite.addTest(unittest.makeSuite(TestAPIEndpoints))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAPIEndpoints))
     
     if args.category in ["agent", "all"]:
-        suite.addTest(unittest.makeSuite(TestAgentInterface))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestAgentInterface))
     
     if args.category in ["errors", "all"]:
-        suite.addTest(unittest.makeSuite(TestErrorHandling))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestErrorHandling))
     
     if args.category in ["performance", "all"]:
-        suite.addTest(unittest.makeSuite(TestPerformanceAndCaching))
+        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestPerformanceAndCaching))
     
     # Run the tests
     runner = unittest.TextTestRunner(verbosity=2 if args.verbose else 1)
