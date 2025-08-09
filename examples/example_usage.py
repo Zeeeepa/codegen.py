@@ -5,8 +5,13 @@ Demonstrates how to use the comprehensive Codegen API client
 """
 
 import os
+import sys
 import time
-from codegen_sdk_api import Agent, CodegenClient, ConfigPresets, Task
+
+# Add parent directory to path for imports
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from backend.api import Agent, CodegenClient, ConfigPresets, Task
 
 # Configuration
 CODEGEN_ORG_ID = "323"

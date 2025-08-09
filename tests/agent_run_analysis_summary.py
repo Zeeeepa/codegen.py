@@ -9,7 +9,11 @@ of the agent run behavior and validates the state management issues.
 import os
 import json
 from datetime import datetime
-from codegen_sdk_api import CodegenClient, Agent, ClientConfig
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from backend.api import CodegenClient, Agent, ClientConfig
 
 # Configuration
 CODEGEN_ORG_ID = int(os.getenv("CODEGEN_ORG_ID", "323"))
@@ -244,4 +248,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

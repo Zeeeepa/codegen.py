@@ -16,7 +16,11 @@ from typing import Dict, Any, List, Optional
 # Add the current directory to the path so we can import our module
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from codegen_sdk_api import (
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from backend.api import (
     # Main classes
     CodegenClient,
     Agent,

@@ -21,7 +21,11 @@ import time
 import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from codegen_sdk_api import CodegenClient, Agent, ClientConfig, ConfigPresets
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from backend.api import CodegenClient, Agent, ClientConfig, ConfigPresets
 
 # Configuration
 CODEGEN_ORG_ID = int(os.getenv("CODEGEN_ORG_ID", "323"))
