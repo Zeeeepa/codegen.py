@@ -10,7 +10,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
 
-API_BASE_URL = os.getenv("CODEGEN_API_BASE_URL", "http://localhost:8000")
+API_BASE_URL = os.getenv("CODEGEN_API_BASE_URL", "https://api.codegen.com/v1")
 
 class DashboardState(rx.State):
     """Dashboard state management"""
@@ -31,7 +31,9 @@ class DashboardState(rx.State):
         self.loading = True
         self.error_message = ""
         try:
-            response = requests.get(f"{self.api_url}/agent_runs", timeout=10)
+            # Get auth headers
+            headers = self._get_auth_headers()
+            response = requests.get(f"{self.api_url}/agent_runs", headers=headers, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 self.agent_runs = data.get("runs", [])
@@ -42,6 +44,17 @@ class DashboardState(rx.State):
         finally:
             self.loading = False
     
+    def _get_auth_headers(self):
+        """Get authentication headers for API requests"""
+        token = os.getenv("CODEGEN_API_TOKEN")
+        org_id = os.getenv("CODEGEN_ORG_ID")
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        if org_id:
+            headers["X-Organization-ID"] = org_id
+        return headers
+    
     def create_agent_run(self, prompt: str):
         """Create a new agent run"""
         if not prompt.strip():
@@ -51,8 +64,9 @@ class DashboardState(rx.State):
         self.loading = True
         self.error_message = ""
         try:
+            headers = self._get_auth_headers()
             payload = {"prompt": prompt, "metadata": {"source": "dashboard"}}
-            response = requests.post(f"{self.api_url}/agent_runs", json=payload, timeout=15)
+            response = requests.post(f"{self.api_url}/agent_runs", json=payload, headers=headers, timeout=15)
             if response.status_code == 200:
                 self.load_agent_runs()  # Refresh the list
             else:
@@ -67,7 +81,8 @@ class DashboardState(rx.State):
         self.selected_run_id = run_id
         self.loading = True
         try:
-            response = requests.get(f"{self.api_url}/agent_runs/{run_id}/logs", timeout=10)
+            headers = self._get_auth_headers()
+            response = requests.get(f"{self.api_url}/agent_runs/{run_id}/logs", headers=headers, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 self.selected_run_logs = data.get("logs", "No logs available")
