@@ -255,10 +255,11 @@ if FASTAPI_AVAILABLE:
         id: int
         organization_id: int
         status: str
-        prompt: str
         result: Optional[str]
         created_at: Optional[str]
         web_url: Optional[str]
+        source_type: Optional[str]
+        github_pull_requests: Optional[List[Dict[str, Any]]]
         metadata: Optional[Dict[str, Any]]
 
     class AgentRunLog(BaseModel):

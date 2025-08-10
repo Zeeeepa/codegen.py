@@ -553,13 +553,11 @@ def main():
         print("📦 Install with: pip install reflex")
         return
     
-    print("🚀 Starting Codegen Dashboard...")
-    print("🌐 Dashboard will be available at: http://localhost:3000")
+    print("🚀 Codegen Dashboard App Created!")
+    print("🌐 To run the dashboard:")
+    print("   reflex run --port 3000")
     print("💡 Make sure the API server is running at: http://localhost:8000")
-    
-    # Initialize and run
-    app.compile()
-    app.run(host="0.0.0.0", port=3000)
+    print("📁 Dashboard will be available at: http://localhost:3000")
 
 if __name__ == "__main__":
     main()
