@@ -534,7 +534,6 @@ if REFLEX_AVAILABLE:
     # ========================================================================
 
     app = rx.App(
-        state=DashboardState,
         style={
             "font_family": "Inter",
             "background_color": "gray.50"
@@ -542,9 +541,6 @@ if REFLEX_AVAILABLE:
     )
     
     app.add_page(index, route="/")
-    
-    # Initialize data on startup
-    app.add_custom_404_page(dashboard_page)
 
 # ============================================================================
 # MAIN FUNCTION
