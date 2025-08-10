@@ -1,89 +1,19 @@
 """
-Codegen SDK Backend Module
-
-This module contains the core Codegen API client implementation.
+Backward compatibility layer for existing backend.api imports
 """
 
-from .api import (
-    # Core client classes
-    CodegenClient,
-    Agent,
-    Task,
-    
-    # Configuration
-    ClientConfig,
-    ConfigPresets,
-    
-    # Data models
-    UserResponse,
-    AgentRunResponse,
-    AgentRunLogResponse,
-    AgentRunWithLogsResponse,
-    OrganizationResponse,
-    GithubPullRequestResponse,
-    
-    # Enums
-    SourceType,
-    MessageType,
-    AgentRunStatus,
-    
-    # Exceptions
-    CodegenAPIError,
-    ValidationError,
-    RateLimitError,
-    AuthenticationError,
-    NotFoundError,
-    ServerError,
-    TimeoutError,
-    NetworkError,
-    
-    # Utility classes
-    RateLimiter,
-    CacheManager,
-    MetricsCollector,
-    BulkOperationManager,
-)
+# Import from the new modular structure
+from codegen.agents.agent import Agent
+from codegen.client import CodegenClient
+from codegen.config import ClientConfig, ConfigPresets
+from codegen.models import *
+from codegen.exceptions import *
 
-__version__ = "2.0.0"
-__author__ = "Codegen SDK Team"
-__email__ = "support@codegen.com"
-
+# Maintain backward compatibility
 __all__ = [
-    # Core classes
-    "CodegenClient",
-    "Agent", 
-    "Task",
-    
-    # Configuration
+    "Agent",
+    "CodegenClient", 
     "ClientConfig",
     "ConfigPresets",
-    
-    # Data models
-    "UserResponse",
-    "AgentRunResponse", 
-    "AgentRunLogResponse",
-    "AgentRunWithLogsResponse",
-    "OrganizationResponse",
-    "GithubPullRequestResponse",
-    
-    # Enums
-    "SourceType",
-    "MessageType", 
-    "AgentRunStatus",
-    
-    # Exceptions
-    "CodegenAPIError",
-    "ValidationError",
-    "RateLimitError", 
-    "AuthenticationError",
-    "NotFoundError",
-    "ServerError",
-    "TimeoutError",
-    "NetworkError",
-    
-    # Utility classes
-    "RateLimiter",
-    "CacheManager",
-    "MetricsCollector", 
-    "BulkOperationManager",
 ]
+
