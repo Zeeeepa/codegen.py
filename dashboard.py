@@ -50,33 +50,44 @@ def start_api_server():
     """Start the FastAPI server if not already running."""
     global api_server_process
     
+    # First check if server is already running using requests (more reliable)
     try:
-        # Check if API server is already running
-        response = httpx.get(f"{API_BASE_URL}/health", timeout=2)
+        import requests
+        response = requests.get(f"{API_BASE_URL}/health", timeout=3)
         if response.status_code == 200:
             print("✅ API server already running")
             return True
     except:
         pass
     
+    # Try to start the server
     try:
         print("🚀 Starting FastAPI server...")
+        
+        # Start the API server process
         api_server_process = subprocess.Popen([
             sys.executable, "api.py"
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
-        # Wait for server to start
-        for _ in range(10):
+        # Wait for server to start with more attempts
+        print("⏳ Waiting for API server to start...")
+        for i in range(15):  # Increased attempts
             try:
-                response = httpx.get(f"{API_BASE_URL}/health", timeout=2)
+                import requests
+                response = requests.get(f"{API_BASE_URL}/health", timeout=2)
                 if response.status_code == 200:
                     print("✅ FastAPI server started successfully!")
                     return True
             except:
                 time.sleep(1)
+                if i % 3 == 0:
+                    print(f"⏳ Still waiting... ({i+1}/15)")
         
-        print("❌ Failed to start API server")
+        print("❌ Failed to start API server after 15 attempts")
+        if api_server_process:
+            api_server_process.terminate()
         return False
+        
     except Exception as e:
         print(f"❌ Error starting API server: {e}")
         return False
@@ -653,29 +664,5 @@ app.add_page(
     ]
 )
 
-def main():
-    """Main entry point."""
-    print("🤖 Starting Codegen Agent Dashboard")
-    print("=" * 50)
-    
-    # Start API server
-    if not start_api_server():
-        print("❌ Failed to start API server. Exiting.")
-        return
-    
-    try:
-        print("🎨 Starting Reflex dashboard...")
-        print(f"📖 Backend API: {API_BASE_URL}/docs")
-        print("🎨 Dashboard UI: http://localhost:3000")
-        print("\n💡 Press Ctrl+C to stop both servers")
-        
-        # Run the Reflex app
-        app.run(host="0.0.0.0", port=3000)
-        
-    except KeyboardInterrupt:
-        print("\n🛑 Shutting down...")
-    finally:
-        stop_api_server()
-
-if __name__ == "__main__":
-    main()
+# This is now just the Reflex app definition
+# Use start.py to launch both API server and dashboard
