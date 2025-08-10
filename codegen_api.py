@@ -29,6 +29,18 @@ try:
 except ImportError:
     AIOHTTP_AVAILABLE = False
 
+# FastAPI and web framework dependencies
+try:
+    from fastapi import FastAPI, HTTPException, Depends, Query, Path, Body, BackgroundTasks
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse, StreamingResponse
+    from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+    from pydantic import BaseModel, Field, validator
+    import uvicorn
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    FASTAPI_AVAILABLE = False
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -1234,6 +1246,357 @@ class Task:
     
     def __repr__(self):
         return self.__str__()
+
+# ============================================================================
+# FASTAPI MODELS AND ENDPOINTS
+# ============================================================================
+
+if FASTAPI_AVAILABLE:
+    # Pydantic models for FastAPI
+    class CreateAgentRunRequest(BaseModel):
+        prompt: str = Field(..., description="The prompt for the agent to execute")
+        images: Optional[List[str]] = Field(None, description="List of base64 encoded images")
+        metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+        
+        class Config:
+            json_schema_extra = {
+                "example": {
+                    "prompt": "Create a Python function to calculate fibonacci numbers",
+                    "images": None,
+                    "metadata": {"priority": "high", "source": "web_ui"}
+                }
+            }
+    
+    class ResumeAgentRunRequest(BaseModel):
+        prompt: str = Field(..., description="Additional prompt to resume the agent")
+        images: Optional[List[str]] = Field(None, description="List of base64 encoded images")
+        
+        class Config:
+            json_schema_extra = {
+                "example": {
+                    "prompt": "Please add error handling to the function",
+                    "images": None
+                }
+            }
+    
+    class AgentRunResponseModel(BaseModel):
+        id: int
+        organization_id: int
+        status: Optional[str]
+        created_at: Optional[str]
+        web_url: Optional[str]
+        result: Optional[str]
+        source_type: Optional[str]
+        github_pull_requests: Optional[List[Dict[str, Any]]]
+        metadata: Optional[Dict[str, Any]]
+        
+        class Config:
+            from_attributes = True
+    
+    class AgentRunLogResponseModel(BaseModel):
+        agent_run_id: int
+        created_at: str
+        message_type: str
+        thought: Optional[str] = None
+        tool_name: Optional[str] = None
+        tool_input: Optional[Dict[str, Any]] = None
+        tool_output: Optional[Dict[str, Any]] = None
+        observation: Optional[Union[Dict[str, Any], str]] = None
+        
+        class Config:
+            from_attributes = True
+    
+    class PaginatedAgentRunsResponse(BaseModel):
+        items: List[AgentRunResponseModel]
+        total: int
+        page: int
+        size: int
+        pages: int
+    
+    class AgentRunWithLogsResponseModel(BaseModel):
+        id: int
+        organization_id: int
+        status: Optional[str]
+        created_at: Optional[str]
+        web_url: Optional[str]
+        result: Optional[str]
+        metadata: Optional[Dict[str, Any]]
+        logs: List[AgentRunLogResponseModel]
+        total_logs: Optional[int]
+        page: Optional[int]
+        size: Optional[int]
+        pages: Optional[int]
+        
+        class Config:
+            from_attributes = True
+    
+    class DashboardStatsResponse(BaseModel):
+        total_runs: int
+        completed_runs: int
+        failed_runs: int
+        running_runs: int
+        success_rate: float
+        average_duration_minutes: Optional[float]
+        recent_activity: List[AgentRunResponseModel]
+        
+    class HealthCheckResponse(BaseModel):
+        status: str
+        response_time_seconds: float
+        user_id: Optional[int]
+        timestamp: str
+        version: str = "1.0.0"
+    
+    # Authentication and dependency injection
+    security = HTTPBearer()
+    
+    def get_codegen_client(credentials: HTTPAuthorizationCredentials = Depends(security)) -> CodegenClient:
+        """Dependency to get authenticated CodegenClient"""
+        try:
+            config = ClientConfig(
+                api_token=credentials.credentials,
+                org_id=os.getenv("CODEGEN_ORG_ID", ""),
+                base_url=os.getenv("CODEGEN_BASE_URL", "https://api.codegen.com/v1")
+            )
+            return CodegenClient(config)
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
+    
+    def get_org_id() -> int:
+        """Get organization ID from environment"""
+        org_id = os.getenv("CODEGEN_ORG_ID")
+        if not org_id:
+            raise HTTPException(status_code=400, detail="CODEGEN_ORG_ID environment variable not set")
+        try:
+            return int(org_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid CODEGEN_ORG_ID format")
+    
+    # FastAPI application factory
+    def create_app(title: str = "Codegen API", version: str = "1.0.0") -> FastAPI:
+        """Create and configure FastAPI application"""
+        app = FastAPI(
+            title=title,
+            version=version,
+            description="Comprehensive FastAPI backend for Codegen agent run management",
+            docs_url="/docs",
+            redoc_url="/redoc"
+        )
+        
+        # CORS middleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # Configure appropriately for production
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+        
+        # Exception handlers
+        @app.exception_handler(CodegenAPIError)
+        async def codegen_api_error_handler(request, exc: CodegenAPIError):
+            return JSONResponse(
+                status_code=exc.status_code or 500,
+                content={
+                    "error": exc.message,
+                    "status_code": exc.status_code,
+                    "request_id": exc.request_id
+                }
+            )
+        
+        @app.exception_handler(ValidationError)
+        async def validation_error_handler(request, exc: ValidationError):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": exc.message,
+                    "field_errors": exc.field_errors
+                }
+            )
+        
+        # Core agent run endpoints
+        @app.post("/agent-runs", response_model=AgentRunResponseModel, tags=["Agent Runs"])
+        async def create_agent_run(
+            request: CreateAgentRunRequest,
+            client: CodegenClient = Depends(get_codegen_client),
+            org_id: int = Depends(get_org_id)
+        ):
+            """Create a new agent run"""
+            try:
+                result = client.create_agent_run(
+                    org_id=org_id,
+                    prompt=request.prompt,
+                    images=request.images,
+                    metadata=request.metadata
+                )
+                return AgentRunResponseModel.model_validate(result.__dict__)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @app.get("/agent-runs/{agent_run_id}", response_model=AgentRunResponseModel, tags=["Agent Runs"])
+        async def get_agent_run(
+            agent_run_id: int = Path(..., description="Agent run ID"),
+            client: CodegenClient = Depends(get_codegen_client),
+            org_id: int = Depends(get_org_id)
+        ):
+            """Get a specific agent run"""
+            try:
+                result = client.get_agent_run(org_id, agent_run_id)
+                return AgentRunResponseModel.model_validate(result.__dict__)
+            except NotFoundError:
+                raise HTTPException(status_code=404, detail="Agent run not found")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @app.get("/agent-runs", response_model=PaginatedAgentRunsResponse, tags=["Agent Runs"])
+        async def list_agent_runs(
+            page: int = Query(1, ge=1, description="Page number"),
+            limit: int = Query(10, ge=1, le=100, description="Items per page"),
+            status: Optional[str] = Query(None, description="Filter by status"),
+            client: CodegenClient = Depends(get_codegen_client),
+            org_id: int = Depends(get_org_id)
+        ):
+            """List agent runs with pagination and filtering"""
+            try:
+                result = client.list_agent_runs(org_id, limit=limit)
+                
+                # Convert items to Pydantic models
+                items = [AgentRunResponseModel.model_validate(item.__dict__) for item in result.items]
+                
+                # Filter by status if provided
+                if status:
+                    items = [item for item in items if item.status == status]
+                
+                return PaginatedAgentRunsResponse(
+                    items=items,
+                    total=result.total,
+                    page=result.page,
+                    size=result.size,
+                    pages=result.pages
+                )
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @app.post("/agent-runs/{agent_run_id}/resume", response_model=AgentRunResponseModel, tags=["Agent Runs"])
+        async def resume_agent_run(
+            agent_run_id: int = Path(..., description="Agent run ID"),
+            request: ResumeAgentRunRequest = Body(...),
+            client: CodegenClient = Depends(get_codegen_client),
+            org_id: int = Depends(get_org_id)
+        ):
+            """Resume a paused agent run"""
+            try:
+                result = client.resume_agent_run(
+                    org_id=org_id,
+                    agent_run_id=agent_run_id,
+                    prompt=request.prompt,
+                    images=request.images
+                )
+                return AgentRunResponseModel.model_validate(result.__dict__)
+            except NotFoundError:
+                raise HTTPException(status_code=404, detail="Agent run not found")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        # Agent run logs endpoints
+        @app.get("/agent-runs/{agent_run_id}/logs", response_model=AgentRunWithLogsResponseModel, tags=["Agent Logs"])
+        async def get_agent_run_logs(
+            agent_run_id: int = Path(..., description="Agent run ID"),
+            skip: int = Query(0, ge=0, description="Number of logs to skip"),
+            limit: int = Query(100, ge=1, le=100, description="Maximum logs to return"),
+            message_type: Optional[str] = Query(None, description="Filter by message type"),
+            client: CodegenClient = Depends(get_codegen_client),
+            org_id: int = Depends(get_org_id)
+        ):
+            """Get logs for a specific agent run"""
+            try:
+                result = client.get_agent_run_logs(org_id, agent_run_id, skip=skip, limit=limit)
+                
+                # Convert logs to Pydantic models
+                logs = [AgentRunLogResponseModel.model_validate(log.__dict__) for log in result.logs]
+                
+                # Filter by message type if provided
+                if message_type:
+                    logs = [log for log in logs if log.message_type == message_type]
+                
+                return AgentRunWithLogsResponseModel(
+                    id=result.id,
+                    organization_id=result.organization_id,
+                    status=result.status,
+                    created_at=result.created_at,
+                    web_url=result.web_url,
+                    result=result.result,
+                    metadata=result.metadata,
+                    logs=logs,
+                    total_logs=result.total_logs,
+                    page=result.page,
+                    size=result.size,
+                    pages=result.pages
+                )
+            except NotFoundError:
+                raise HTTPException(status_code=404, detail="Agent run not found")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @app.get("/agent-runs/{agent_run_id}/logs/stream", tags=["Agent Logs"])
+        async def stream_agent_run_logs(
+            agent_run_id: int = Path(..., description="Agent run ID"),
+            client: CodegenClient = Depends(get_codegen_client),
+            org_id: int = Depends(get_org_id)
+        ):
+            """Stream logs for a specific agent run in real-time"""
+            async def log_generator():
+                try:
+                    last_log_count = 0
+                    while True:
+                        # Get latest logs
+                        result = client.get_agent_run_logs(org_id, agent_run_id, skip=last_log_count, limit=100)
+                        
+                        # Send new logs
+                        for log in result.logs:
+                            log_data = AgentRunLogResponseModel.model_validate(log.__dict__)
+                            yield f"data: {log_data.model_dump_json()}\n\n"
+                        
+                        last_log_count = result.total_logs or 0
+                        
+                        # Check if agent run is completed
+                        agent_run = client.get_agent_run(org_id, agent_run_id)
+                        if agent_run.status in ["completed", "failed", "cancelled"]:
+                            break
+                        
+                        await asyncio.sleep(2)  # Poll every 2 seconds
+                        
+                except Exception as e:
+                    yield f"data: {{'error': '{str(e)}'}}\n\n"
+            
+            return StreamingResponse(
+                log_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                }
+            )
+        
+        # User and organization endpoints
+        @app.get("/users/me", tags=["Users"])
+        async def get_current_user(client: CodegenClient = Depends(get_codegen_client)):
+            """Get current user information"""
+            try:
+                result = client.get_current_user()
+                return {"id": result.id, "email": result.email, "github_username": result.github_username}
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @app.get("/organizations", tags=["Organizations"])
+        async def get_organizations(client: CodegenClient = Depends(get_codegen_client)):
+            """Get organizations for the current user"""
+            try:
+                result = client.get_organizations(limit=10)
+                return {"items": [{"id": org.id, "name": org.name} for org in result.items]}
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        return app
 
 # ============================================================================
 # MAIN FUNCTION FOR TESTING
