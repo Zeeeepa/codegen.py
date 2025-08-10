@@ -1,6 +1,6 @@
 """
-Comprehensive Codegen API SDK
-Enhanced Python client for the Codegen API with full feature support
+Comprehensive Codegen API SDK with FastAPI Backend
+Enhanced Python client for the Codegen API with full feature support and FastAPI web interface
 """
 
 import os
@@ -28,6 +28,19 @@ try:
     AIOHTTP_AVAILABLE = True
 except ImportError:
     AIOHTTP_AVAILABLE = False
+
+# FastAPI imports
+try:
+    from fastapi import FastAPI, HTTPException, Depends, Query, Path, Body, BackgroundTasks, WebSocket, WebSocketDisconnect
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import StreamingResponse, JSONResponse
+    from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+    from pydantic import BaseModel, Field, validator
+    import uvicorn
+    from sse_starlette.sse import EventSourceResponse
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    FASTAPI_AVAILABLE = False
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -241,6 +254,153 @@ class ClientStats:
     cache_hit_rate: float
     status_code_distribution: Dict[int, int]
     recent_requests: List[RequestMetrics]
+
+# ============================================================================
+# FASTAPI PYDANTIC MODELS
+# ============================================================================
+
+if FASTAPI_AVAILABLE:
+    # Request Models
+    class CreateAgentRunRequest(BaseModel):
+        prompt: str = Field(..., description="The instruction for the agent to execute")
+        images: Optional[List[str]] = Field(None, description="List of base64 encoded data URIs representing images")
+        metadata: Optional[Dict[str, Any]] = Field(None, description="Arbitrary JSON metadata to be stored with the agent run")
+        repo_name: Optional[str] = Field(None, description="Repository name")
+        branch_name: Optional[str] = Field(None, description="Branch name")
+
+    class ResumeAgentRunRequest(BaseModel):
+        agent_run_id: int = Field(..., description="The ID of the agent run to resume")
+        prompt: str = Field(..., description="Additional instruction for the agent")
+        images: Optional[List[str]] = Field(None, description="List of base64 encoded data URIs representing images")
+
+    class AgentRunFilters(BaseModel):
+        status: Optional[str] = Field(None, description="Filter by status")
+        created_after: Optional[datetime] = Field(None, description="Filter runs created after this date")
+        created_before: Optional[datetime] = Field(None, description="Filter runs created before this date")
+        has_result: Optional[bool] = Field(None, description="Filter runs that have results")
+
+    # Response Models
+    class AgentRunCard(BaseModel):
+        """UI-optimized agent run data for cards/lists"""
+        id: int
+        status: str
+        prompt: str
+        created_at: Optional[datetime]
+        updated_at: Optional[datetime]
+        web_url: Optional[str]
+        result_preview: Optional[str] = Field(None, description="First 200 characters of result")
+        duration_seconds: Optional[float] = Field(None, description="Execution duration")
+        metadata: Optional[Dict[str, Any]]
+        repo_name: Optional[str]
+        branch_name: Optional[str]
+        
+        class Config:
+            json_encoders = {
+                datetime: lambda v: v.isoformat() if v else None
+            }
+
+    class AgentRunDetail(BaseModel):
+        """Complete agent run details"""
+        id: int
+        organization_id: int
+        status: str
+        prompt: str
+        result: Optional[str]
+        created_at: Optional[datetime]
+        updated_at: Optional[datetime]
+        web_url: Optional[str]
+        metadata: Optional[Dict[str, Any]]
+        repo_name: Optional[str]
+        branch_name: Optional[str]
+        total_logs: Optional[int]
+        
+        class Config:
+            json_encoders = {
+                datetime: lambda v: v.isoformat() if v else None
+            }
+
+    class AgentRunLog(BaseModel):
+        """Agent run log entry"""
+        agent_run_id: int
+        created_at: datetime
+        message_type: str
+        thought: Optional[str]
+        tool_name: Optional[str]
+        tool_input: Optional[Dict[str, Any]]
+        tool_output: Optional[Dict[str, Any]]
+        observation: Optional[Union[Dict[str, Any], str]]
+        
+        class Config:
+            json_encoders = {
+                datetime: lambda v: v.isoformat() if v else None
+            }
+
+    class AgentRunLogsResponse(BaseModel):
+        """Paginated logs response"""
+        logs: List[AgentRunLog]
+        total_logs: int
+        page: int
+        size: int
+        pages: int
+
+    class PaginatedAgentRuns(BaseModel):
+        """Paginated agent runs response"""
+        items: List[AgentRunCard]
+        total: int
+        page: int
+        limit: int
+        has_next: bool
+        has_prev: bool
+
+    class UserInfo(BaseModel):
+        """User information"""
+        id: int
+        email: str
+        name: Optional[str]
+        github_username: Optional[str]
+        created_at: Optional[datetime]
+        
+        class Config:
+            json_encoders = {
+                datetime: lambda v: v.isoformat() if v else None
+            }
+
+    class OrganizationInfo(BaseModel):
+        """Organization information"""
+        id: int
+        name: str
+        slug: str
+        created_at: Optional[datetime]
+        
+        class Config:
+            json_encoders = {
+                datetime: lambda v: v.isoformat() if v else None
+            }
+
+    class HealthCheck(BaseModel):
+        """Health check response"""
+        status: str
+        timestamp: datetime
+        version: str = "1.0.0"
+        uptime_seconds: Optional[float]
+        
+        class Config:
+            json_encoders = {
+                datetime: lambda v: v.isoformat() if v else None
+            }
+
+    class ErrorResponse(BaseModel):
+        """Error response model"""
+        error: str
+        detail: Optional[str] = None
+        status_code: int
+        timestamp: datetime
+        request_id: Optional[str] = None
+        
+        class Config:
+            json_encoders = {
+                datetime: lambda v: v.isoformat() if v else None
+            }
 
 # ============================================================================
 # CONFIGURATION
