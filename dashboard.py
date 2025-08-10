@@ -756,16 +756,30 @@ app.add_page(
     on_load=AgentRunState.load_agent_runs
 )
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the dashboard."""
     try:
         # Initialize and start API server if needed
         initialize_app()
         
-        # Start the dashboard
-        app.run()
+        # Start the dashboard using reflex run
+        import subprocess
+        import sys
+        import os
+        
+        print("🎨 Starting Reflex dashboard...")
+        print("📖 Backend API: http://localhost:8000/docs")
+        print("🎨 Dashboard UI: http://localhost:3000")
+        print("\n💡 Press Ctrl+C to stop both servers")
+        
+        # Use reflex run to start the dashboard
+        subprocess.run([sys.executable, "-m", "reflex", "run", "--env", "prod"])
         
     except KeyboardInterrupt:
         print("\n🛑 Shutting down...")
     finally:
         # Clean up API server
         stop_api_server()
+
+if __name__ == "__main__":
+    main()
