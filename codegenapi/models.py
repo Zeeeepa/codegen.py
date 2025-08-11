@@ -80,3 +80,26 @@ class TaskTemplate:
     template_path: str
     description: str
     variables: list[str]
+
+
+@dataclass
+class AgentRunLogResponse:
+    """Agent run log response model"""
+    agent_run_id: int
+    created_at: str
+    message_type: str
+    thought: Optional[str] = None
+    tool_name: Optional[str] = None
+    tool_input: Optional[str] = None
+    tool_output: Optional[str] = None
+    error: Optional[str] = None
+
+
+@dataclass
+class AgentRunWithLogsResponse:
+    """Agent run with logs response model"""
+    id: int
+    status: str
+    created_at: str
+    updated_at: str
+    logs: list[AgentRunLogResponse]

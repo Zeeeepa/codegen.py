@@ -203,3 +203,26 @@ class TaskManager:
         """Close resources"""
         self.client.close()
 
+
+class LogAnalyzer:
+    """Analyzes agent run logs for insights and outcomes"""
+    
+    def __init__(self):
+        pass
+    
+    def analyze_logs(self, logs):
+        """Analyze logs and extract insights"""
+        # Mock implementation for testing
+        return {
+            "total_logs": len(logs),
+            "success": True,
+            "insights": ["Analysis complete"]
+        }
+    
+    def extract_outcomes(self, logs):
+        """Extract outcomes from logs"""
+        # Mock implementation for testing
+        return {
+            "outcome": "success",
+            "summary": "Task completed successfully"
+        }

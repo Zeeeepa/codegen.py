@@ -1,0 +1,2 @@
+[console_scripts]
+codegenapi = codegenapi.main:main

@@ -5,7 +5,8 @@ This script demonstrates all the key functionality of the upgraded SDK.
 """
 
 import time
-from codegen_api import Agent, CodegenAPIError
+from codegen.agents.agent import Agent
+from codegenapi.exceptions import CodegenAPIError
 
 def main():
     print("🧪 Comprehensive Codegen SDK Test")
