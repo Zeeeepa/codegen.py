@@ -1,282 +1,100 @@
-# Codegen API CLI & Dashboard
+# Codegen Dashboard
 
-Enhanced CLI and Dashboard for Codegen API with workspace management, template support, and comprehensive task lifecycle management.
+A simple, focused dashboard for creating and managing Codegen agent runs.
 
 ## Features
 
-### 🚀 Enhanced CLI
-- **Template-based task creation** with predefined task types
-- **Workspace management** for multi-repository projects  
-- **Task lifecycle management** (create, resume, status, cancel)
-- **Local state persistence** for offline access
-- **Rich output formatting** with tables, JSON, and YAML
-- **Live status monitoring** with watch mode
+- **Single Entry Point**: Launch dashboard with one command
+- **Simple Interface**: Clean, intuitive UI for agent run management
+- **Core Functionality**:
+  - Input repository URL
+  - Optional PR name/number input
+  - Query text (request) input
+  - Run button to create agent runs
+  - View agent run list with real-time updates
+  - Cancel button for active runs
 
-### 📊 Live Dashboard
-- **Real-time task monitoring** with auto-refresh
-- **Interactive task management** (create, resume, cancel)
-- **Analytics and reporting** with charts and metrics
-- **Task filtering and search** capabilities
-- **Export/import functionality** for data management
+## Quick Start
 
-### 🏗️ Clean Architecture
-- **Separation of concerns** between UI and API integration
-- **Modular design** with clear interfaces
-- **Extensible template system** for custom task types
-- **Comprehensive error handling** and logging
-- **Type-safe data models** throughout
-
-## Installation
+### 1. Set Environment Variables
 
 ```bash
-# Install the package
-pip install -e .
-
-# Install with dashboard dependencies
-pip install -e ".[dashboard]"
-
-# Install with development dependencies
-pip install -e ".[dev]"
+export CODEGEN_API_TOKEN="sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
+export CODEGEN_ORG_ID="323"
 ```
 
-## Configuration
-
-Set your Codegen API credentials:
+### 2. Install Dependencies
 
 ```bash
-export CODEGEN_API_TOKEN="sk-your-token-here"
-export CODEGEN_ORG_ID="your-org-id"
+pip install -r requirements.txt
 ```
 
-## CLI Usage
-
-### Create a new task
-```bash
-# Create a feature implementation task
-codegenapi new FEATURE_IMPLEMENTATION --repo https://github.com/user/repo
-
-# Create with custom message and priority
-codegenapi new BUG_FIX --repo my-repo --message "Fix login issue" --priority high
-
-# Create with workspace and template variables
-codegenapi new PLAN_CREATION --repo my-repo --workspace my-workspace --template-vars '{"key": "value"}'
-
-# Dry run to preview
-codegenapi new TEST_GENERATION --repo my-repo --dry-run
-```
-
-### Check task status
-```bash
-# List recent tasks
-codegenapi status
-
-# Check specific task
-codegenapi status 12345
-
-# Watch task with live updates
-codegenapi status 12345 --watch
-
-# Show task logs
-codegenapi status 12345 --logs
-
-# Filter by status and format
-codegenapi status --filter-status ACTIVE --format json
-```
-
-### Resume a paused task
-```bash
-codegenapi resume 12345 --message "Continue with the implementation"
-```
-
-### Available Task Types
-- `PLAN_CREATION` - Create comprehensive project plans
-- `FEATURE_IMPLEMENTATION` - Implement new features
-- `BUG_FIX` - Fix bugs and issues
-- `CODE_RESTRUCTURE` - Refactor and restructure code
-- `CODEBASE_ANALYSIS` - Analyze codebase structure and quality
-- `TEST_GENERATION` - Generate comprehensive test suites
-
-## Dashboard Usage
-
-Launch the interactive dashboard:
+### 3. Launch Dashboard
 
 ```bash
-# Start the dashboard
-streamlit run DASHBOARD/Main.py
-
-# Or with custom port
-streamlit run DASHBOARD/Main.py --server.port 8502
+streamlit run dashboard.py
 ```
 
-### Dashboard Features
-- **📋 Active Tasks**: View and manage all tasks with real-time updates
-- **📈 Analytics**: Task performance metrics and trend analysis
-- **➕ Create Task**: Interactive task creation with template support
-- **⚙️ Settings**: Configuration and data management
+The dashboard will open in your browser at `http://localhost:8501`
+
+## Usage
+
+### Creating Agent Runs
+
+1. **Repository URL**: Enter the GitHub repository URL (required)
+2. **PR Name/Number**: Optionally specify a PR name, branch name, or PR number
+3. **Request/Query**: Describe what you want the agent to do (required)
+4. **Click Run**: Creates the agent run and adds it to the list
+
+### Managing Runs
+
+- **View Runs**: See all your agent runs with status, creation time, and prompt preview
+- **Auto Refresh**: Automatically updates the run list every 10 seconds
+- **Manual Refresh**: Click the refresh button to update immediately
+- **Cancel Runs**: Cancel active runs with the cancel button
+- **View Details**: Click the "View" link to see full run details on codegen.com
 
 ## Project Structure
 
 ```
-codegenapi/
-├── __init__.py                 # Package initialization
-├── __main__.py                 # Entry point
-├── main.py                     # CLI router
-├── cli.py                      # Argument parsing
-├── task_manager.py             # Task lifecycle management
-├── state_store.py              # Local task storage
-├── codegen_client.py           # Codegen API client
-├── template_loader.py          # Template processing
-├── config.py                   # Configuration management
-├── models.py                   # Data structures
-├── exceptions.py               # Error handling
-└── commands/
-    ├── new.py                  # Task creation
-    ├── resume.py               # Task continuation
-    └── status.py               # Progress checking
-
-TASKS/                          # Task templates
-├── PLAN_CREATION.md
-├── CODE_RESTRUCTURE.md
-├── FEATURE_IMPLEMENTATION.md
-├── BUG_FIX.md
-├── CODEBASE_ANALYSIS.md
-└── TEST_GENERATION.md
-
-DASHBOARD/                      # Dashboard application
-└── Main.py                     # Streamlit dashboard
+codegen.py/
+├── dashboard.py              # Single entry point dashboard
+├── requirements.txt          # Dependencies
+├── codegenapi/              # Simplified API client
+│   ├── __init__.py          # Package exports
+│   ├── codegen_client.py    # API client
+│   ├── config.py            # Configuration
+│   ├── exceptions.py        # Error handling
+│   └── models.py            # Data models
+└── README.md                # This file
 ```
 
-## Architecture
+## API Integration
 
-### Clean Separation of Concerns
+The dashboard uses the Codegen API to:
 
-**CLI Layer** (`cli.py`, `commands/`)
-- Command parsing and validation
-- User interaction and output formatting
-- Progress display and status updates
+- Create new agent runs with custom prompts
+- List existing agent runs for your organization
+- Cancel active agent runs
+- Retrieve run status and details
 
-**Task Management Layer** (`task_manager.py`, `template_loader.py`, `state_store.py`)
-- Task lifecycle management
-- Template processing and rendering
-- Local state persistence and caching
+All API calls include proper error handling and user feedback.
 
-**API Integration Layer** (`codegen_client.py`)
-- Direct Codegen API communication
-- Error handling and retry logic
-- Data transformation and validation
+## Environment Variables
 
-### Key Benefits
-- **UI-agnostic business logic** - Same logic powers both CLI and dashboard
-- **Offline capabilities** - Local state storage for task metadata
-- **Extensible templates** - Easy to add new task types
-- **Comprehensive error handling** - Graceful failure handling throughout
-- **Type safety** - Full type hints and validation
-
-## Template System
-
-Templates are Markdown files with variable substitution:
-
-```markdown
-<!-- TEMPLATE METADATA
-Description: Create a comprehensive project plan
-Variables: repository, workspace, priority, custom_message
--->
-
-# Project Planning Task
-
-You are tasked with creating a plan for: **{repository}**
-
-## Context
-- **Repository**: {repository}
-- **Workspace**: {workspace}
-- **Priority**: {priority}
-
-## Additional Instructions
-{custom_message}
-```
-
-### Template Variables
-- `{repository}` - Repository URL or name
-- `{workspace}` - Workspace name
-- `{priority}` - Task priority level
-- `{timestamp}` - Current timestamp
-- `{custom_message}` - User-provided instructions
+- `CODEGEN_API_TOKEN`: Your Codegen API token (required)
+- `CODEGEN_ORG_ID`: Your organization ID (required)
+- `CODEGEN_BASE_URL`: API base URL (optional, defaults to https://api.codegen.com/v1)
 
 ## Development
 
-### Running Tests
-```bash
-pytest tests/
-pytest tests/ --cov=codegenapi
-```
+The codebase is intentionally simple and focused:
 
-### Code Formatting
-```bash
-black codegenapi/
-flake8 codegenapi/
-mypy codegenapi/
-```
+- **dashboard.py**: Single-file Streamlit application
+- **codegenapi/**: Minimal API client with only essential functionality
+- **No complex CLI**: Removed unnecessary command-line tools
+- **No templates**: Simplified prompt creation
+- **No state persistence**: Uses Streamlit session state only
 
-### Adding New Task Types
-1. Add the task type to `TaskType` enum in `models.py`
-2. Create a new template file in `TASKS/`
-3. Update CLI argument choices in `cli.py`
-
-### Adding New Commands
-1. Create a new command handler in `commands/`
-2. Add argument parsing in `cli.py`
-3. Route the command in `main.py`
-
-## API Validation Methodology
-
-The implementation includes comprehensive validation to ensure real API functionality:
-
-### 1. **Direct API Integration Testing**
-- All API calls use real Codegen endpoints
-- No mock functions - only actual API responses
-- Comprehensive error handling for all API scenarios
-
-### 2. **End-to-End Workflow Validation**
-```bash
-# Test complete task lifecycle
-codegenapi new FEATURE_IMPLEMENTATION --repo test-repo
-codegenapi status --limit 5
-codegenapi resume <task-id> --message "Continue"
-```
-
-### 3. **Dashboard Real-Time Validation**
-- Live API data integration
-- Real-time status updates
-- Actual task creation and management
-
-### 4. **Error Scenario Testing**
-- Invalid authentication handling
-- Network failure recovery
-- Rate limiting compliance
-- Malformed request handling
-
-### 5. **Performance Validation**
-- API response time monitoring
-- Caching effectiveness measurement
-- Concurrent request handling
-- Memory usage optimization
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with tests
-4. Run the test suite
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Support
-
-For issues and questions:
-- GitHub Issues: [Create an issue](https://github.com/Zeeeepa/codegen.py/issues)
-- Documentation: See inline code documentation
-- Examples: Check the `examples/` directory
+This design prioritizes simplicity and ease of use over advanced features.
 

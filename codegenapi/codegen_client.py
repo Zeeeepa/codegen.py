@@ -1,69 +1,46 @@
 """
-Codegen API Client
-
-Clean, focused API client based on PR 8's architecture.
-Handles all Codegen API interactions with proper error handling and logging.
+Simplified Codegen API Client for Dashboard
 """
 
 import os
-import json
 import time
 import logging
 import requests
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from dataclasses import dataclass
 
 from .models import AgentRun
-from .exceptions import CodegenAPIError, CodegenAuthError, CodegenConnectionError
+from .exceptions import CodegenError
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class PaginatedResponse:
-    """Paginated API response"""
-    items: List[Any]
-    total: int
-    page: int
-    size: int
-    pages: int
-
-
 class CodegenClient:
-    """
-    Codegen API client with enhanced error handling and logging.
-    
-    Based on PR 8's architecture but simplified for the specific use case.
-    """
+    """Simplified Codegen API client for dashboard use"""
     
     def __init__(
         self,
         token: Optional[str] = None,
         org_id: Optional[int] = None,
-        base_url: str = "https://api.codegen.com/v1",
-        timeout: int = 30,
-        max_retries: int = 3
+        base_url: str = "https://api.codegen.com/v1"
     ):
         """Initialize the Codegen client"""
         self.token = token or os.getenv("CODEGEN_API_TOKEN")
         self.org_id = org_id or int(os.getenv("CODEGEN_ORG_ID", "0"))
         self.base_url = base_url
-        self.timeout = timeout
-        self.max_retries = max_retries
         
         if not self.token:
-            raise CodegenAuthError("API token is required")
+            raise CodegenError("API token is required")
         
         if not self.org_id:
-            raise CodegenAuthError("Organization ID is required")
+            raise CodegenError("Organization ID is required")
         
         # Configure session
         self.session = requests.Session()
         self.session.headers.update({
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
-            "User-Agent": "CodegenAPI-CLI/2.0"
+            "User-Agent": "CodegenDashboard/1.0"
         })
         
         logger.info(f"Initialized CodegenClient for org {self.org_id}")
@@ -75,76 +52,48 @@ class CodegenClient:
         data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Make HTTP request with error handling and retries"""
+        """Make HTTP request with error handling"""
         
         url = f"{self.base_url}{endpoint}"
         
-        for attempt in range(self.max_retries + 1):
-            try:
-                if method == "GET":
-                    response = self.session.get(url, params=params, timeout=self.timeout)
-                elif method == "POST":
-                    response = self.session.post(url, json=data, timeout=self.timeout)
-                else:
-                    raise ValueError(f"Unsupported HTTP method: {method}")
+        try:
+            if method == "GET":
+                response = self.session.get(url, params=params, timeout=30)
+            elif method == "POST":
+                response = self.session.post(url, json=data, timeout=30)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
+            
+            # Handle response
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 401:
+                raise CodegenError("Authentication failed - invalid token")
+            elif response.status_code == 403:
+                raise CodegenError("Access forbidden - insufficient permissions")
+            elif response.status_code == 404:
+                raise CodegenError("Requested resource not found")
+            else:
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get("detail", f"HTTP {response.status_code}")
+                except:
+                    error_message = f"HTTP {response.status_code}"
                 
-                # Handle response
-                if response.status_code == 200:
-                    return response.json()
-                elif response.status_code == 401:
-                    raise CodegenAuthError("Authentication failed - invalid token")
-                elif response.status_code == 403:
-                    raise CodegenAuthError("Access forbidden - insufficient permissions")
-                elif response.status_code == 404:
-                    raise CodegenAPIError("Requested resource not found")
-                elif response.status_code == 429:
-                    if attempt < self.max_retries:
-                        wait_time = 2 ** attempt
-                        logger.warning(f"Rate limited, waiting {wait_time}s")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        raise CodegenAPIError("Rate limit exceeded")
-                else:
-                    try:
-                        error_data = response.json()
-                        error_message = error_data.get("detail", f"HTTP {response.status_code}")
-                    except:
-                        error_message = f"HTTP {response.status_code}"
-                    
-                    raise CodegenAPIError(f"API request failed: {error_message}")
-            
-            except requests.exceptions.ConnectionError as e:
-                if attempt < self.max_retries:
-                    wait_time = 2 ** attempt
-                    logger.warning(f"Connection failed, retrying in {wait_time}s")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    raise CodegenConnectionError(f"Connection failed: {e}")
-            
-            except requests.exceptions.Timeout as e:
-                if attempt < self.max_retries:
-                    wait_time = 2 ** attempt
-                    logger.warning(f"Request timeout, retrying in {wait_time}s")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    raise CodegenConnectionError(f"Request timeout: {e}")
+                raise CodegenError(f"API request failed: {error_message}")
         
-        raise CodegenAPIError("Request failed after all retries")
+        except requests.exceptions.RequestException as e:
+            raise CodegenError(f"Request failed: {e}")
     
     def create_agent_run(
         self,
         prompt: str,
-        images: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        images: Optional[List[str]] = None
     ) -> AgentRun:
         """Create a new agent run"""
         data = {
             "prompt": prompt,
-            "images": images or [],
-            "metadata": metadata or {}
+            "images": images or []
         }
         
         response = self._make_request("POST", f"/organizations/{self.org_id}/agent/run", data=data)
@@ -158,62 +107,24 @@ class CodegenClient:
     def list_agent_runs(
         self,
         skip: int = 0,
-        limit: int = 100,
-        status_filter: Optional[str] = None
-    ) -> PaginatedResponse:
+        limit: int = 50
+    ) -> List[AgentRun]:
         """List agent runs for the organization"""
         params = {"skip": skip, "limit": limit}
-        if status_filter:
-            params["status"] = status_filter
         
         response = self._make_request("GET", f"/organizations/{self.org_id}/agent/runs", params=params)
         
         # Parse agent runs
         runs = [self._parse_agent_run(run_data) for run_data in response.get("items", [])]
-        
-        return PaginatedResponse(
-            items=runs,
-            total=response.get("total", len(runs)),
-            page=response.get("page", 1),
-            size=response.get("size", limit),
-            pages=response.get("pages", 1)
-        )
-    
-    def resume_agent_run(
-        self,
-        agent_run_id: int,
-        prompt: str,
-        images: Optional[List[str]] = None
-    ) -> AgentRun:
-        """Resume a paused agent run"""
-        data = {
-            "agent_run_id": agent_run_id,
-            "prompt": prompt,
-            "images": images or []
-        }
-        
-        response = self._make_request("POST", f"/organizations/{self.org_id}/agent/run/resume", data=data)
-        return self._parse_agent_run(response)
-    
-    def get_agent_run_logs(
-        self,
-        agent_run_id: int,
-        skip: int = 0,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """Get logs for an agent run"""
-        params = {"skip": skip, "limit": limit}
-        response = self._make_request("GET", f"/alpha/organizations/{self.org_id}/agent/run/{agent_run_id}/logs", params=params)
-        return response.get("logs", [])
+        return runs
     
     def cancel_agent_run(self, agent_run_id: int) -> bool:
         """Cancel an active agent run"""
         try:
-            # Try the most likely endpoint first
             data = {"agent_run_id": agent_run_id}
             self._make_request("POST", f"/organizations/{self.org_id}/agent/run/cancel", data=data)
             return True
-        except CodegenAPIError:
+        except CodegenError:
             logger.warning(f"Failed to cancel agent run {agent_run_id}")
             return False
     
