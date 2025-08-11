@@ -1,93 +1,157 @@
 """
-Task execution logs command
+Real task execution logs command
 """
 
 import argparse
 import json
 import time
 from datetime import datetime
+from typing import List, Dict, Any
+from ..codegen_client import CodegenClient
+from ..config import Config
 
 def execute_logs_command(args: argparse.Namespace) -> int:
-    """Execute logs command"""
+    """Execute real logs command"""
     
-    print(f"📜 **Task Execution Logs**")
+    print(f"📜 **Real Task Execution Logs**")
     print(f"🎯 Task ID: {args.task_id}")
-    print(f"📏 Lines: {args.lines}")
     
+    # Initialize real client
+    try:
+        config = Config()
+        client = CodegenClient(config)
+    except Exception as e:
+        print(f"❌ Failed to initialize client: {e}")
+        print("💡 Make sure CODEGEN_API_TOKEN and CODEGEN_ORG_ID are set")
+        return 1
+    
+    try:
+        # Get real logs from API
+        logs = client.get_agent_run_logs(int(args.task_id))
+        
+        if not logs:
+            print("📭 No logs found for this task")
+            return 0
+        
+        # Filter logs
+        filtered_logs = filter_logs(logs, args)
+        
+        if not filtered_logs:
+            print("📭 No logs match the specified filters")
+            return 0
+        
+        # Display logs
+        display_logs(filtered_logs, args)
+        
+        # Follow mode
+        if args.follow:
+            follow_logs(client, int(args.task_id), args)
+        
+        # Export if requested
+        if args.export:
+            export_logs(filtered_logs, args.export, args.format)
+        
+        return 0
+        
+    except ValueError:
+        print(f"❌ Invalid task ID: {args.task_id}")
+        return 1
+    except Exception as e:
+        print(f"❌ Failed to fetch logs: {e}")
+        return 1
+
+def filter_logs(logs: List[Dict], args: argparse.Namespace) -> List[Dict]:
+    """Filter logs based on arguments"""
+    
+    filtered = logs
+    
+    # Filter by level
     if args.level:
-        print(f"🔍 Log level filter: {args.level.upper()}")
+        filtered = [log for log in filtered if log.get('level', '').lower() == args.level.lower()]
     
+    # Filter by pattern
     if args.grep:
-        print(f"🔎 Pattern filter: {args.grep}")
+        filtered = [log for log in filtered if args.grep.lower() in log.get('message', '').lower()]
     
-    if args.follow:
-        print("👀 Following log output (Ctrl+C to stop)...")
+    # Limit number of lines
+    if args.lines and args.lines < len(filtered):
+        filtered = filtered[-args.lines:]  # Get last N lines
     
-    print("🚧 Log retrieval not yet implemented")
-    print("💡 Log features will include:")
-    print("   - Real-time log streaming")
-    print("   - Multi-level filtering")
-    print("   - Pattern matching")
-    print("   - Export capabilities")
-    print("   - Structured log parsing")
+    return filtered
+
+def display_logs(logs: List[Dict], args: argparse.Namespace) -> None:
+    """Display logs in specified format"""
     
-    # Simulate log output
-    print("\n📊 **Simulated Log Output:**")
-    sample_logs = [
-        {"timestamp": "2024-08-11T16:00:01Z", "level": "INFO", "message": "Task started", "component": "task_manager"},
-        {"timestamp": "2024-08-11T16:00:02Z", "level": "DEBUG", "message": "Loading configuration", "component": "config"},
-        {"timestamp": "2024-08-11T16:00:03Z", "level": "INFO", "message": "Connecting to API", "component": "client"},
-        {"timestamp": "2024-08-11T16:00:05Z", "level": "INFO", "message": "Repository cloned", "component": "git"},
-        {"timestamp": "2024-08-11T16:00:10Z", "level": "WARNING", "message": "Large file detected", "component": "analyzer"},
-        {"timestamp": "2024-08-11T16:00:15Z", "level": "INFO", "message": "Analysis complete", "component": "analyzer"},
-        {"timestamp": "2024-08-11T16:00:20Z", "level": "INFO", "message": "Task completed successfully", "component": "task_manager"}
-    ]
+    print(f"\n📊 **REAL LOGS** ({len(logs)} entries)")
+    print("=" * 80)
     
-    displayed_logs = sample_logs[-args.lines:] if args.lines < len(sample_logs) else sample_logs
-    
-    if args.level:
-        displayed_logs = [log for log in displayed_logs if log['level'].lower() == args.level.lower()]
-    
-    if args.grep:
-        displayed_logs = [log for log in displayed_logs if args.grep.lower() in log['message'].lower()]
-    
-    for log in displayed_logs:
+    for log in logs:
         if args.format == "json":
-            print(json.dumps(log))
+            print(json.dumps(log, indent=2))
         else:
-            timestamp = log['timestamp']
-            level = log['level'].ljust(7)
-            component = log['component'].ljust(12)
-            message = log['message']
+            timestamp = log.get('timestamp', 'N/A')
+            level = log.get('level', 'INFO').ljust(7)
+            component = log.get('component', 'system').ljust(12)
+            message = log.get('message', 'No message')
+            
             print(f"{timestamp} {level} [{component}] {message}")
+
+def follow_logs(client: CodegenClient, task_id: int, args: argparse.Namespace) -> None:
+    """Follow logs in real-time"""
     
-    if args.follow:
-        print("\n👀 Following logs (simulated)...")
-        try:
-            for i in range(5):
-                time.sleep(2)
-                new_log = {
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "level": "INFO",
-                    "message": f"Periodic update {i+1}",
-                    "component": "monitor"
-                }
-                if args.format == "json":
-                    print(json.dumps(new_log))
-                else:
-                    print(f"{new_log['timestamp']} {new_log['level'].ljust(7)} [{new_log['component'].ljust(12)}] {new_log['message']}")
-        except KeyboardInterrupt:
-            print("\n⏹️  Log following stopped")
+    print(f"\n👀 **Following logs for task {task_id}** (Ctrl+C to stop)")
+    print("=" * 60)
     
-    if args.export:
-        print(f"\n💾 Exporting logs to: {args.export}")
-        with open(args.export, 'w') as f:
-            if args.format == "json":
-                json.dump(displayed_logs, f, indent=2)
+    last_log_count = 0
+    
+    try:
+        while True:
+            # Get updated logs
+            logs = client.get_agent_run_logs(task_id)
+            
+            if len(logs) > last_log_count:
+                # Display new logs
+                new_logs = logs[last_log_count:]
+                filtered_new_logs = filter_logs(new_logs, args)
+                
+                for log in filtered_new_logs:
+                    if args.format == "json":
+                        print(json.dumps(log, indent=2))
+                    else:
+                        timestamp = log.get('timestamp', datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ'))
+                        level = log.get('level', 'INFO').ljust(7)
+                        component = log.get('component', 'system').ljust(12)
+                        message = log.get('message', 'No message')
+                        
+                        print(f"{timestamp} {level} [{component}] {message}")
+                
+                last_log_count = len(logs)
+            
+            time.sleep(2)  # Check every 2 seconds
+            
+    except KeyboardInterrupt:
+        print("\n⏹️  Log following stopped")
+
+def export_logs(logs: List[Dict], filename: str, format: str) -> None:
+    """Export logs to file"""
+    
+    print(f"\n💾 Exporting {len(logs)} log entries to: {filename}")
+    
+    try:
+        with open(filename, 'w') as f:
+            if format == "json":
+                json.dump(logs, f, indent=2)
             else:
-                for log in displayed_logs:
-                    f.write(f"{log['timestamp']} {log['level'].ljust(7)} [{log['component'].ljust(12)}] {log['message']}\n")
+                for log in logs:
+                    timestamp = log.get('timestamp', 'N/A')
+                    level = log.get('level', 'INFO').ljust(7)
+                    component = log.get('component', 'system').ljust(12)
+                    message = log.get('message', 'No message')
+                    
+                    f.write(f"{timestamp} {level} [{component}] {message}\n")
+        
         print("✅ Log export completed")
-    
-    return 0
+        
+    except Exception as e:
+        print(f"❌ Export failed: {e}")
 

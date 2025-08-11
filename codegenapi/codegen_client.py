@@ -1,95 +1,137 @@
 """
-Codegen API client
+Real Codegen API client for agent management
 """
 
 import requests
-import time
-from typing import Dict, Any, Optional
-from .exceptions import APIError
+import json
+from typing import Dict, List, Any, Optional
 from .config import Config
 
-
 class CodegenClient:
-    """HTTP client for Codegen API"""
+    """Real client for Codegen API"""
     
     def __init__(self, config: Config):
         self.config = config
-        self.base_url = config.get("api.base_url")
-        self.token = config.get("api.token")
-        self.org_id = config.get("api.org_id")
-        self.timeout = config.get("api.timeout", 300)
-        
-        if not self.token:
-            raise APIError("API token is required")
-        if not self.org_id:
-            raise APIError("Organization ID is required")
-        
-        self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json"
-        })
-    
-    def create_agent_run(self, prompt: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Create a new agent run"""
-        url = f"{self.base_url}/v1/organizations/{self.org_id}/agent/run"
-        
-        payload = {
-            "prompt": prompt,
-            "metadata": metadata or {}
+        self.base_url = config.base_url
+        self.headers = {
+            'Authorization': f'Bearer {config.api_token}',
+            'Content-Type': 'application/json'
         }
+        self.org_id = config.org_id
+    
+    def list_agent_runs(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """List agent runs from the API"""
         
         try:
-            response = self.session.post(url, json=payload, timeout=30)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            raise APIError(f"Failed to create agent run: {e}")
-    
-    def get_agent_run(self, run_id: str) -> Dict[str, Any]:
-        """Get agent run status and result"""
-        url = f"{self.base_url}/v1/organizations/{self.org_id}/agent/run/{run_id}"
-        
-        try:
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            raise APIError(f"Failed to get agent run: {e}")
-    
-    def resume_agent_run(self, run_id: str, prompt: str) -> Dict[str, Any]:
-        """Resume an agent run with additional prompt"""
-        url = f"{self.base_url}/v1/organizations/{self.org_id}/agent/run/resume"
-        
-        payload = {
-            "agent_run_id": int(run_id),
-            "prompt": prompt
-        }
-        
-        try:
-            response = self.session.post(url, json=payload, timeout=30)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            raise APIError(f"Failed to resume agent run: {e}")
-    
-    def wait_for_completion(self, run_id: str, timeout: int = None) -> Dict[str, Any]:
-        """Wait for agent run to complete"""
-        timeout = timeout or self.timeout
-        start_time = time.time()
-        
-        while time.time() - start_time < timeout:
-            run_data = self.get_agent_run(run_id)
-            status = run_data.get("status", "").lower()
+            url = f"{self.base_url}/agent-runs"
+            params = {
+                'org_id': self.org_id,
+                'limit': limit
+            }
             
-            if status in ["completed", "failed", "cancelled"]:
-                return run_data
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
             
-            time.sleep(5)  # Poll every 5 seconds
-        
-        raise APIError(f"Agent run {run_id} did not complete within {timeout} seconds")
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('runs', [])
+            else:
+                print(f"API Error: {response.status_code} - {response.text}")
+                return []
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            return []
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return []
     
-    def close(self):
-        """Close the HTTP session"""
-        self.session.close()
+    def get_agent_run(self, run_id: int) -> Dict[str, Any]:
+        """Get specific agent run"""
+        
+        try:
+            url = f"{self.base_url}/agent-runs/{run_id}"
+            params = {'org_id': self.org_id}
+            
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"API Error: {response.status_code} - {response.text}")
+                return {}
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            return {}
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return {}
+    
+    def create_agent_run(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Create new agent run"""
+        
+        try:
+            url = f"{self.base_url}/agent-runs"
+            
+            payload = {
+                'org_id': self.org_id,
+                'prompt': prompt,
+                **kwargs
+            }
+            
+            response = requests.post(url, headers=self.headers, json=payload, timeout=30)
+            
+            if response.status_code in [200, 201]:
+                return response.json()
+            else:
+                print(f"API Error: {response.status_code} - {response.text}")
+                return {}
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            return {}
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return {}
+    
+    def cancel_agent_run(self, run_id: int) -> bool:
+        """Cancel agent run"""
+        
+        try:
+            url = f"{self.base_url}/agent-runs/{run_id}/cancel"
+            params = {'org_id': self.org_id}
+            
+            response = requests.post(url, headers=self.headers, params=params, timeout=30)
+            
+            return response.status_code in [200, 204]
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            return False
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return False
+    
+    def get_agent_run_logs(self, run_id: int) -> List[Dict[str, Any]]:
+        """Get logs for agent run"""
+        
+        try:
+            url = f"{self.base_url}/agent-runs/{run_id}/logs"
+            params = {'org_id': self.org_id}
+            
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('logs', [])
+            else:
+                print(f"API Error: {response.status_code} - {response.text}")
+                return []
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            return []
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return []
 

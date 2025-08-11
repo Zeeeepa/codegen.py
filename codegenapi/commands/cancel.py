@@ -1,43 +1,82 @@
 """
-Task cancellation command
+Real task cancellation command
 """
 
 import argparse
 from typing import List
+from ..codegen_client import CodegenClient
+from ..config import Config
 
 def execute_cancel_command(args: argparse.Namespace) -> int:
-    """Execute task cancellation command"""
+    """Execute real task cancellation command"""
     
-    print(f"❌ **Task Cancellation**")
+    print(f"❌ **Real Task Cancellation**")
     print(f"🎯 Task IDs: {args.task_ids}")
     
-    if args.force:
-        print("⚠️  Force cancellation enabled")
+    # Initialize real client
+    try:
+        config = Config()
+        client = CodegenClient(config)
+    except Exception as e:
+        print(f"❌ Failed to initialize client: {e}")
+        print("💡 Make sure CODEGEN_API_TOKEN and CODEGEN_ORG_ID are set")
+        return 1
     
     if args.reason:
         print(f"📝 Reason: {args.reason}")
     
-    print("🚧 Task cancellation not yet implemented")
-    print("💡 Cancellation features will include:")
-    print("   - Graceful task termination")
-    print("   - Resource cleanup")
-    print("   - State preservation")
-    print("   - Notification system")
-    print("   - Audit logging")
+    if args.force:
+        print("⚠️  Force cancellation enabled")
     
-    # Simulate cancellation process
-    print("\n🔄 **Simulated Cancellation Process:**")
+    success_count = 0
+    failed_count = 0
+    
+    print("\n🔄 **Cancelling Tasks:**")
+    
     for task_id in args.task_ids:
-        print(f"📋 Processing task {task_id}...")
-        print(f"   ⏹️  Sending cancellation signal")
-        print(f"   🧹 Cleaning up resources")
-        print(f"   💾 Saving current state")
-        print(f"   ✅ Task {task_id} cancelled successfully")
+        try:
+            print(f"📋 Processing task {task_id}...")
+            
+            # Get task info first
+            run_info = client.get_agent_run(int(task_id))
+            
+            if not run_info:
+                print(f"   ❌ Task {task_id} not found")
+                failed_count += 1
+                continue
+            
+            current_status = run_info.get('status', 'unknown')
+            
+            if current_status in ['completed', 'failed', 'cancelled']:
+                print(f"   ⚠️  Task {task_id} is already {current_status}")
+                continue
+            
+            # Attempt cancellation
+            if client.cancel_agent_run(int(task_id)):
+                print(f"   ✅ Task {task_id} cancelled successfully")
+                success_count += 1
+            else:
+                print(f"   ❌ Failed to cancel task {task_id}")
+                failed_count += 1
+                
+        except ValueError:
+            print(f"   ❌ Invalid task ID: {task_id}")
+            failed_count += 1
+        except Exception as e:
+            print(f"   ❌ Error cancelling task {task_id}: {e}")
+            failed_count += 1
     
-    print(f"\n✅ Cancelled {len(args.task_ids)} task(s)")
+    print(f"\n📊 **Cancellation Summary:**")
+    print(f"   ✅ Successfully cancelled: {success_count}")
+    print(f"   ❌ Failed to cancel: {failed_count}")
+    print(f"   📊 Total processed: {len(args.task_ids)}")
     
-    if not args.force:
-        print("💡 Use --force for immediate termination without cleanup")
+    if failed_count > 0:
+        print("\n💡 Some cancellations failed. Possible reasons:")
+        print("   - Task ID doesn't exist")
+        print("   - Task already completed/failed")
+        print("   - Network/API issues")
+        print("   - Insufficient permissions")
     
-    return 0
+    return 0 if failed_count == 0 else 1
 
