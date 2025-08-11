@@ -23,6 +23,23 @@ chmod +x cli.py
 ln -s $(pwd)/cli.py /usr/local/bin/codegenapi
 ```
 
+## 📁 Project Structure
+
+```
+codegen.py/
+├── codegen_api.py              # Core SDK with enhanced logging
+├── cli.py                      # Command-line interface
+├── setup.py                    # Package configuration
+├── requirements.txt            # Dependencies
+├── README.md                   # This documentation
+├── TESTING_RESULTS.md          # Comprehensive test results
+└── tests/                      # Test suite
+    ├── __init__.py
+    ├── test_sdk.py             # Core SDK tests
+    ├── comprehensive_test.py   # Integration tests
+    └── test_enhanced_logging.py # Enhanced logging tests
+```
+
 ## 🔧 Configuration
 
 ### Environment Variables
@@ -203,6 +220,39 @@ codegenapi logs --task-id 12345
 - **Documentation**: `DOCUMENTATION_GENERATION`, `CODE_COMMENTS`
 - **DevOps**: `CI_CD_SETUP`, `GITHUB_WORKFLOW_CREATION`, `DOCKER_CONFIGURATION`
 - **Integration**: `THIRD_PARTY_INTEGRATION`
+
+## 🧪 Testing
+
+The SDK includes a comprehensive test suite located in the `tests/` directory:
+
+```bash
+# Run all tests
+python -m pytest tests/
+
+# Run specific test files
+python tests/test_sdk.py                    # Core SDK functionality
+python tests/comprehensive_test.py         # Full integration tests
+python tests/test_enhanced_logging.py      # Enhanced logging system
+```
+
+### Test Coverage
+- ✅ **Core SDK**: Agent initialization, task execution, status monitoring
+- ✅ **Enhanced Logging**: Outcome detection, log analysis, CLI formatting
+- ✅ **CLI Interface**: All commands and error handling
+- ✅ **API Client**: HTTP operations, authentication, error handling
+- ✅ **Integration**: End-to-end workflows and edge cases
+
+### Running Tests
+```bash
+# Install test dependencies
+pip install pytest
+
+# Run all tests with verbose output
+python -m pytest tests/ -v
+
+# Run tests with coverage
+python -m pytest tests/ --cov=codegen_api --cov=cli
+```
 
 ## 🏗️ API Reference
 
