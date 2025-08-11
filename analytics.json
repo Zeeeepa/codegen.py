@@ -1,0 +1,36 @@
+{
+  "period": "day",
+  "summary": {
+    "total_tasks": 156,
+    "success_rate": 0.87,
+    "avg_duration_minutes": 23.5,
+    "total_agent_hours": 61.2
+  },
+  "by_task_type": {
+    "FEATURE_IMPLEMENTATION": {
+      "count": 45,
+      "success_rate": 0.89,
+      "avg_duration": 35.2
+    },
+    "BUG_FIX": {
+      "count": 67,
+      "success_rate": 0.92,
+      "avg_duration": 18.7
+    },
+    "CODE_RESTRUCTURE": {
+      "count": 23,
+      "success_rate": 0.78,
+      "avg_duration": 42.1
+    },
+    "CODEBASE_ANALYSIS": {
+      "count": 21,
+      "success_rate": 0.95,
+      "avg_duration": 12.3
+    }
+  },
+  "performance_trends": {
+    "success_rate_trend": "+5.2%",
+    "duration_trend": "-8.1%",
+    "throughput_trend": "+12.4%"
+  }
+}

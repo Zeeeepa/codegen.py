@@ -1,57 +1,145 @@
-# CodegenAPI
+# CodegenAPI - Agent Orchestration Tool
 
-A comprehensive Python SDK and CLI tool for agent-to-agent task execution using the Codegen API. This tool is specifically designed for AI agents to efficiently delegate tasks to other Codegen agents.
+A comprehensive Python SDK and CLI tool for AI agents to orchestrate and delegate tasks to other Codegen agents efficiently.
 
-## Features
+## 🚀 Quick Start
 
-- **Agent-Centric Design**: Built specifically for AI agents to call other agents
-- **Task Templates**: Pre-built templates for common development tasks
-- **State Management**: Persistent task tracking and resumption
-- **CLI Interface**: Simple command-line interface for task execution
-- **Comprehensive SDK**: Full Python SDK for programmatic access
-
-## Installation
+### Installation
 
 ```bash
-pip install codegenapi
-```
-
-Or install from source:
-
-```bash
+# Clone the repository
 git clone https://github.com/Zeeeepa/codegen.py
 cd codegen.py
+
+# Install in development mode
 pip install -e .
 ```
 
-## Quick Start
+### Configuration
 
-### 1. Configuration
-
-Set your API credentials:
+Set up your environment variables:
 
 ```bash
 export CODEGEN_API_TOKEN="your_api_token"
 export CODEGEN_ORG_ID="your_org_id"
+export CODEGEN_BASE_URL="https://codegen-sh-rest-api.modal.run"  # optional
 ```
 
-### 2. CLI Usage
+### Basic Usage
+
+```bash
+# Run the CLI
+python main.py --help
+
+# Or use the installed command
+codegenapi --help
+```
+
+## 🤖 Agent Orchestration Features
+
+### Core Task Management
 
 ```bash
 # Create a new task
-codegenapi new --repo https://github.com/user/repo --task FEATURE_IMPLEMENTATION --query "Add user authentication system"
+codegenapi new --repo https://github.com/user/repo \
+  --task FEATURE_IMPLEMENTATION \
+  --query "Implement OAuth2 authentication" \
+  --priority high
 
-# Check task status
-codegenapi status <task_id>
+# Monitor task progress
+codegenapi status 12345 --watch
 
-# Resume a task with additional instructions
-codegenapi resume --task-id <task_id> --message "Please also add password reset functionality"
+# Resume a paused task
+codegenapi resume --task-id 12345 \
+  --message "Also add password reset functionality"
 
-# List recent tasks
-codegenapi list
+# List and filter tasks
+codegenapi list --status running --priority high --limit 20
 ```
 
-### 3. Python SDK Usage
+### Workflow Orchestration
+
+```bash
+# Execute multi-task workflows
+codegenapi workflow --file workflow.yaml --mode parallel --max-concurrent 3
+
+# Manage task dependencies
+codegenapi deps --task-id 12345 --depends-on 12344,12343 --show
+
+# Multi-agent collaboration
+codegenapi collaborate --tasks 12345,12346 --strategy divide-and-conquer
+```
+
+### Monitoring & Analytics
+
+```bash
+# Real-time monitoring
+codegenapi monitor --dashboard --refresh 5 --alerts
+
+# Performance analytics
+codegenapi analytics --period day --metrics success-rate --export report.json
+
+# View execution logs
+codegenapi logs 12345 --follow --level info
+```
+
+### Configuration & Management
+
+```bash
+# Manage configuration
+codegenapi config --show
+codegenapi config --set api.timeout 300
+
+# Template management
+codegenapi templates --list
+codegenapi templates --show FEATURE_IMPLEMENTATION
+
+# Resource cleanup
+codegenapi cleanup --completed --older-than 7d --dry-run
+```
+
+## 📁 Project Structure
+
+```
+codegen.py/
+├── README.md                    # This file
+├── main.py                      # Main entry point
+├── setup.py                     # Package configuration
+├── requirements.txt             # Dependencies
+├── tests/                       # All test files
+│   ├── __init__.py
+│   ├── test_codegenapi.py      # Main test suite
+│   ├── test_sdk.py             # SDK tests
+│   └── ...
+├── codegenapi/                  # Main package
+│   ├── __init__.py             # Package exports
+│   ├── models.py               # Data models
+│   ├── config.py               # Configuration
+│   ├── task_manager.py         # Core functionality
+│   ├── state_store.py          # Persistence
+│   ├── template_loader.py      # Templates
+│   ├── codegen_client.py       # API client
+│   ├── cli.py                  # CLI parsing
+│   ├── main.py                 # CLI entry point
+│   └── commands/               # CLI commands
+│       ├── new.py              # Task creation
+│       ├── status.py           # Status checking
+│       ├── workflow.py         # Workflow orchestration
+│       ├── collaborate.py      # Multi-agent coordination
+│       ├── monitor.py          # Real-time monitoring
+│       ├── analytics.py        # Performance analytics
+│       └── ...
+├── TASKS/                       # Task templates
+│   ├── FEATURE_IMPLEMENTATION.md
+│   ├── BUG_FIX.md
+│   ├── CODE_RESTRUCTURE.md
+│   └── ...
+└── examples/                    # Usage examples
+    ├── basic_usage.py
+    └── cli_examples.sh
+```
+
+## 🛠️ Python SDK Usage
 
 ```python
 from codegenapi import TaskManager, Config
@@ -67,249 +155,108 @@ task = task_manager.create_task(
     query="Add user authentication system"
 )
 
-print(f"Task created: {task.id}")
+# Monitor progress
+while task.status in ["pending", "running"]:
+    task.refresh()
+    print(f"Status: {task.status}")
+    time.sleep(5)
 
-# Check status
-task = task_manager.get_task_status(task.id)
-print(f"Status: {task.status}")
-
-# Wait for completion
-completed_task = task_manager.wait_for_completion(task.id)
-print(f"Result: {completed_task.result}")
+# Get results
+if task.status == "completed":
+    print(f"Task completed: {task.result}")
 ```
 
-## Available Task Types
+## 🎯 Agent Orchestration Capabilities
 
-The tool includes pre-built templates for common development tasks:
+### Task Types
+- **FEATURE_IMPLEMENTATION**: New feature development
+- **BUG_FIX**: Bug fixing and patches
+- **CODE_RESTRUCTURE**: Refactoring and optimization
+- **CODEBASE_ANALYSIS**: Code analysis and documentation
+- **TEST_GENERATION**: Test creation and validation
+- **PLAN_CREATION**: Development planning
 
-- **PLAN_CREATION**: Create comprehensive development plans
-- **CODE_RESTRUCTURE**: Restructure and reorganize codebases
-- **FEATURE_IMPLEMENTATION**: Implement new features
-- **BUG_FIX**: Fix bugs and issues
-- **CODEBASE_ANALYSIS**: Analyze code quality and architecture
-- **TEST_GENERATION**: Generate comprehensive test suites
+### Orchestration Features
+- **Sequential Workflows**: Execute tasks in order
+- **Parallel Execution**: Run multiple tasks simultaneously
+- **Dependency Management**: Handle task dependencies
+- **Multi-Agent Collaboration**: Coordinate multiple agents
+- **Real-Time Monitoring**: Track progress and performance
+- **Resource Management**: Optimize resource usage
 
-## CLI Commands
+### Advanced Features
+- **Priority Queuing**: High-priority task execution
+- **Agent Specialization**: Route tasks to specialized agents
+- **Failure Recovery**: Automatic retry and recovery
+- **State Persistence**: Resume interrupted workflows
+- **Performance Analytics**: Track and optimize performance
+- **Custom Templates**: Create reusable task templates
 
-### `new` - Create a new task
+## 🧪 Testing
 
 ```bash
-codegenapi new --repo <repo_url> --task <task_type> --query "<description>" [options]
+# Run all tests
+python -m pytest tests/ -v
+
+# Run specific test file
+python -m pytest tests/test_codegenapi.py -v
+
+# Run with coverage
+python -m pytest tests/ --cov=codegenapi --cov-report=html
 ```
 
-Options:
-- `--pr <number>`: PR number to work on
-- `--branch <name>`: Branch name to work on
-- `--wait`: Wait for task completion
-- `--timeout <seconds>`: Timeout for waiting (default: 300)
+## 📚 Documentation
 
-### `status` - Check task status
-
+### CLI Help
 ```bash
-codegenapi status <task_id> [options]
+# Main help
+codegenapi --help
+
+# Command-specific help
+codegenapi new --help
+codegenapi workflow --help
+codegenapi monitor --help
 ```
 
-Options:
-- `--watch`: Watch for status changes
-- `--interval <seconds>`: Watch interval (default: 5)
-
-### `resume` - Resume a task
-
-```bash
-codegenapi resume --task-id <task_id> [options]
-```
-
-Options:
-- `--repo <url>`: Updated repository URL
-- `--pr <number>`: Updated PR number
-- `--message <text>`: Additional instructions
-- `--wait`: Wait for completion
-- `--timeout <seconds>`: Timeout for waiting
-
-### `list` - List recent tasks
-
-```bash
-codegenapi list [options]
-```
-
-Options:
-- `--limit <number>`: Number of tasks to show (default: 10)
-- `--status <status>`: Filter by status
-
-## Configuration
-
-### Environment Variables
-
-- `CODEGEN_API_TOKEN`: Your Codegen API token (required)
-- `CODEGEN_ORG_ID`: Your organization ID (optional, defaults to "1")
-- `CODEGEN_BASE_URL`: API base URL (optional)
-
-### Configuration File
-
-Create a `config.yaml` file to customize task templates and settings:
+### Configuration
+Create a `config.yaml` file:
 
 ```yaml
-# Task type mappings
-tasks:
-  CUSTOM_TASK: path/to/custom_template.md
-
-# API configuration
 api:
+  token: your_api_token
+  org_id: your_org_id
   base_url: https://codegen-sh-rest-api.modal.run
-  timeout: 300
 
-# Storage configuration
 storage:
   tasks_dir: ~/.codegenapi/tasks
   logs_dir: ~/.codegenapi/logs
+
+defaults:
+  timeout: 3600
+  priority: medium
+  agent_type: fullstack
 ```
 
-## Task Templates
-
-Task templates are Markdown files that provide structured prompts for different types of development work. Templates support variable substitution:
-
-- `{{repo_url}}`: Repository URL
-- `{{query}}`: Task description
-- `{{pr_number}}`: PR number
-- `{{branch}}`: Branch name
-- `{{task_type}}`: Task type
-
-### Creating Custom Templates
-
-1. Create a Markdown template file in the `TASKS/` directory
-2. Add variable placeholders using `{{variable_name}}` syntax
-3. Update `config.yaml` to map your task type to the template
-
-## Python SDK Reference
-
-### Core Classes
-
-#### `TaskManager`
-Main class for managing task lifecycle:
-
-```python
-task_manager = TaskManager(config)
-
-# Create task
-task = task_manager.create_task(repo_url, task_type, query, pr_number, branch)
-
-# Get status
-task = task_manager.get_task_status(task_id)
-
-# Resume task
-task = task_manager.resume_task(task_id, additional_prompt)
-
-# Wait for completion
-task = task_manager.wait_for_completion(task_id, timeout)
-```
-
-#### `Config`
-Configuration management:
-
-```python
-config = Config()
-errors = config.validate()  # Check configuration
-```
-
-#### `Task`
-Task data model:
-
-```python
-task.id          # Task ID
-task.status      # TaskStatus enum
-task.repo_url    # Repository URL
-task.task_type   # Task type
-task.query       # Task description
-task.result      # Task result (when completed)
-task.error_message  # Error message (if failed)
-```
-
-## Error Handling
-
-The SDK provides comprehensive error handling:
-
-```python
-from codegenapi.exceptions import CodegenAPIError, TaskError, APIError
-
-try:
-    task = task_manager.create_task(...)
-except TaskError as e:
-    print(f"Task error: {e}")
-except APIError as e:
-    print(f"API error: {e}")
-except CodegenAPIError as e:
-    print(f"General error: {e}")
-```
-
-## Development
-
-### Setup Development Environment
-
-```bash
-git clone https://github.com/Zeeeepa/codegen.py
-cd codegen.py
-pip install -e ".[dev]"
-```
-
-### Running Tests
-
-```bash
-pytest tests/
-```
-
-### Code Formatting
-
-```bash
-black codegenapi/
-flake8 codegenapi/
-```
-
-## Examples
-
-### Example 1: Feature Implementation
-
-```bash
-codegenapi new \
-  --repo https://github.com/myorg/myapp \
-  --task FEATURE_IMPLEMENTATION \
-  --query "Add OAuth2 authentication with Google and GitHub providers" \
-  --wait
-```
-
-### Example 2: Bug Fix with PR
-
-```bash
-codegenapi new \
-  --repo https://github.com/myorg/myapp \
-  --task BUG_FIX \
-  --pr 123 \
-  --query "Fix memory leak in user session management"
-```
-
-### Example 3: Code Analysis
-
-```bash
-codegenapi new \
-  --repo https://github.com/myorg/myapp \
-  --task CODEBASE_ANALYSIS \
-  --query "Analyze security vulnerabilities and performance bottlenecks"
-```
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Add tests
-5. Submit a pull request
+5. Run the test suite
+6. Submit a pull request
 
-## Support
+## 📄 License
 
-- Documentation: [https://docs.codegen.com](https://docs.codegen.com)
-- Issues: [GitHub Issues](https://github.com/Zeeeepa/codegen.py/issues)
-- API Reference: [https://docs.codegen.com/introduction/api](https://docs.codegen.com/introduction/api)
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🔗 Links
+
+- [Codegen API Documentation](https://docs.codegen.com)
+- [GitHub Repository](https://github.com/Zeeeepa/codegen.py)
+- [Issue Tracker](https://github.com/Zeeeepa/codegen.py/issues)
+
+---
+
+**Built for AI agents, by AI agents** 🤖✨
 

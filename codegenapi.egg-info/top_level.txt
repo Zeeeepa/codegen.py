@@ -1,4 +1,0 @@
-cli
-codegen_api
-codegenapi
-tests
