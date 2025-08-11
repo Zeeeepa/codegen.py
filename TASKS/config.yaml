@@ -1,0 +1,440 @@
+# Codegen Task Management Configuration
+# This file defines task types, templates, workflows, and system behavior
+
+# Task Type Definitions
+# Each task type specifies its template, requirements, and validation rules
+task_types:
+  PLAN_CREATION:
+    template: "templates/plan_creation.md"
+    description: "Create comprehensive development plans for features or projects"
+    estimated_duration: "30-60 minutes"
+    required_context: 
+      - "repository_structure"
+      - "existing_documentation"
+      - "current_architecture"
+    output_format: "markdown"
+    validation_rules:
+      - "must_include_timeline"
+      - "must_include_resource_requirements"
+      - "must_include_risk_assessment"
+      - "must_include_success_criteria"
+    priority_default: "medium"
+    auto_assign: true
+
+  PLAN_EVALUATION:
+    template: "templates/plan_evaluation.md"
+    description: "Evaluate and improve existing development plans"
+    estimated_duration: "20-45 minutes"
+    required_context:
+      - "existing_plan"
+      - "current_progress"
+      - "blockers_issues"
+    output_format: "markdown"
+    validation_rules:
+      - "must_include_assessment_criteria"
+      - "must_include_recommendations"
+      - "must_include_revised_timeline"
+    priority_default: "medium"
+
+  FEATURE_IMPLEMENTATION:
+    template: "templates/feature_implementation.md"
+    description: "Implement new features on specific branches"
+    estimated_duration: "2-8 hours"
+    required_context:
+      - "codebase_structure"
+      - "existing_tests"
+      - "documentation"
+      - "coding_standards"
+    output_format: "code_changes"
+    validation_rules:
+      - "must_include_tests"
+      - "must_update_documentation"
+      - "must_follow_coding_standards"
+      - "must_include_error_handling"
+    priority_default: "high"
+    auto_create_branch: true
+    auto_create_pr: true
+
+  BUG_FIX:
+    template: "templates/bug_fix.md"
+    description: "Fix bugs on specific branches or PRs"
+    estimated_duration: "30 minutes - 4 hours"
+    required_context:
+      - "error_logs"
+      - "reproduction_steps"
+      - "related_code"
+      - "existing_test_cases"
+    output_format: "code_changes"
+    validation_rules:
+      - "must_include_root_cause_analysis"
+      - "must_include_fix_verification"
+      - "must_include_prevention_measures"
+      - "must_update_tests"
+    priority_default: "urgent"
+    auto_assign: true
+
+  CODEBASE_ANALYSIS:
+    template: "templates/codebase_analysis.md"
+    description: "Analyze code quality, architecture, and technical debt"
+    estimated_duration: "1-3 hours"
+    required_context:
+      - "full_codebase"
+      - "git_history"
+      - "dependency_tree"
+      - "performance_metrics"
+    output_format: "analysis_report"
+    validation_rules:
+      - "must_include_quality_metrics"
+      - "must_include_recommendations"
+      - "must_include_priority_ranking"
+    priority_default: "medium"
+
+  SECURITY_ANALYSIS:
+    template: "templates/security_analysis.md"
+    description: "Perform security audit and vulnerability assessment"
+    estimated_duration: "2-6 hours"
+    required_context:
+      - "codebase_structure"
+      - "dependencies"
+      - "api_endpoints"
+      - "authentication_flow"
+    output_format: "security_report"
+    validation_rules:
+      - "must_include_vulnerability_assessment"
+      - "must_include_risk_ratings"
+      - "must_include_remediation_steps"
+    priority_default: "high"
+
+  PERFORMANCE_ANALYSIS:
+    template: "templates/performance_analysis.md"
+    description: "Analyze and optimize performance bottlenecks"
+    estimated_duration: "2-5 hours"
+    required_context:
+      - "performance_metrics"
+      - "profiling_data"
+      - "database_queries"
+      - "api_response_times"
+    output_format: "performance_report"
+    validation_rules:
+      - "must_include_bottleneck_identification"
+      - "must_include_optimization_recommendations"
+      - "must_include_performance_targets"
+    priority_default: "medium"
+
+  CODE_RESTRUCTURE:
+    template: "templates/code_restructure.md"
+    description: "Refactor and restructure existing code"
+    estimated_duration: "4-12 hours"
+    required_context:
+      - "current_architecture"
+      - "target_architecture"
+      - "existing_tests"
+      - "dependencies"
+    output_format: "code_changes"
+    validation_rules:
+      - "must_maintain_functionality"
+      - "must_improve_code_quality"
+      - "must_update_tests"
+      - "must_update_documentation"
+    priority_default: "medium"
+    auto_create_branch: true
+
+  DOCUMENTATION_GENERATION:
+    template: "templates/documentation_generation.md"
+    description: "Generate comprehensive documentation"
+    estimated_duration: "1-4 hours"
+    required_context:
+      - "codebase_structure"
+      - "api_definitions"
+      - "existing_documentation"
+      - "user_workflows"
+    output_format: "documentation"
+    validation_rules:
+      - "must_include_examples"
+      - "must_include_api_reference"
+      - "must_include_getting_started"
+      - "must_be_up_to_date"
+    priority_default: "medium"
+
+  TEST_GENERATION:
+    template: "templates/test_generation.md"
+    description: "Generate comprehensive test suites"
+    estimated_duration: "2-6 hours"
+    required_context:
+      - "source_code"
+      - "existing_tests"
+      - "test_framework"
+      - "coverage_requirements"
+    output_format: "test_code"
+    validation_rules:
+      - "must_achieve_coverage_target"
+      - "must_include_edge_cases"
+      - "must_include_integration_tests"
+      - "must_follow_test_patterns"
+    priority_default: "medium"
+
+  API_CREATION:
+    template: "templates/api_creation.md"
+    description: "Create REST API endpoints with full CRUD operations"
+    estimated_duration: "3-8 hours"
+    required_context:
+      - "api_specification"
+      - "data_models"
+      - "authentication_system"
+      - "existing_endpoints"
+    output_format: "code_changes"
+    validation_rules:
+      - "must_include_validation"
+      - "must_include_error_handling"
+      - "must_include_documentation"
+      - "must_include_tests"
+    priority_default: "high"
+    auto_create_branch: true
+
+  GITHUB_WORKFLOW_CREATION:
+    template: "templates/github_workflow_creation.md"
+    description: "Create CI/CD workflows and automation"
+    estimated_duration: "1-3 hours"
+    required_context:
+      - "project_structure"
+      - "build_requirements"
+      - "deployment_targets"
+      - "testing_strategy"
+    output_format: "workflow_files"
+    validation_rules:
+      - "must_include_testing_stage"
+      - "must_include_security_checks"
+      - "must_include_deployment_stage"
+      - "must_handle_failures"
+    priority_default: "medium"
+
+# Workflow Definitions
+# Define multi-step workflows that combine multiple task types
+workflows:
+  feature_development:
+    name: "Complete Feature Development"
+    description: "End-to-end feature development workflow"
+    steps:
+      - name: "planning"
+        type: "PLAN_CREATION"
+        description: "Create implementation plan"
+        required: true
+      
+      - name: "implementation"
+        type: "FEATURE_IMPLEMENTATION"
+        description: "Implement the feature"
+        depends_on: ["planning"]
+        required: true
+      
+      - name: "testing"
+        type: "TEST_GENERATION"
+        description: "Generate comprehensive tests"
+        depends_on: ["implementation"]
+        required: true
+      
+      - name: "documentation"
+        type: "DOCUMENTATION_GENERATION"
+        description: "Update documentation"
+        depends_on: ["implementation"]
+        required: false
+      
+      - name: "security_review"
+        type: "SECURITY_ANALYSIS"
+        description: "Security review"
+        depends_on: ["implementation"]
+        required: false
+
+  bug_resolution:
+    name: "Complete Bug Resolution"
+    description: "Comprehensive bug fixing workflow"
+    steps:
+      - name: "analysis"
+        type: "CODEBASE_ANALYSIS"
+        description: "Analyze the bug and root cause"
+        required: true
+      
+      - name: "fix"
+        type: "BUG_FIX"
+        description: "Implement the fix"
+        depends_on: ["analysis"]
+        required: true
+      
+      - name: "testing"
+        type: "TEST_GENERATION"
+        description: "Add regression tests"
+        depends_on: ["fix"]
+        required: true
+
+  architecture_migration:
+    name: "Architecture Migration"
+    description: "Complete architecture migration workflow"
+    steps:
+      - name: "current_analysis"
+        type: "CODEBASE_ANALYSIS"
+        description: "Analyze current architecture"
+        required: true
+      
+      - name: "migration_plan"
+        type: "PLAN_CREATION"
+        description: "Create migration plan"
+        depends_on: ["current_analysis"]
+        required: true
+      
+      - name: "restructure"
+        type: "CODE_RESTRUCTURE"
+        description: "Restructure the code"
+        depends_on: ["migration_plan"]
+        required: true
+      
+      - name: "testing"
+        type: "TEST_GENERATION"
+        description: "Update test suite"
+        depends_on: ["restructure"]
+        required: true
+      
+      - name: "documentation"
+        type: "DOCUMENTATION_GENERATION"
+        description: "Update architecture documentation"
+        depends_on: ["restructure"]
+        required: true
+
+# Default Settings
+defaults:
+  priority: "medium"
+  timeout: "4 hours"
+  retry_attempts: 3
+  auto_assign: true
+  notification_channels: ["email"]
+  workspace_dir: "./TASKS"
+  max_concurrent_tasks: 5
+  archive_completed_after_days: 30
+
+# Priority Levels
+priority_levels:
+  urgent:
+    sla_hours: 2
+    escalation_after_hours: 1
+    notification_frequency: "immediate"
+  
+  high:
+    sla_hours: 8
+    escalation_after_hours: 4
+    notification_frequency: "hourly"
+  
+  medium:
+    sla_hours: 24
+    escalation_after_hours: 12
+    notification_frequency: "daily"
+  
+  low:
+    sla_hours: 72
+    escalation_after_hours: 48
+    notification_frequency: "weekly"
+
+# Integration Settings
+integrations:
+  github:
+    auto_create_branch: true
+    auto_create_pr: true
+    pr_template: "templates/pr_template.md"
+    branch_naming_convention: "codegen/{task_type}/{task_id}"
+    commit_message_template: "{task_type}: {description}\n\nTask ID: {task_id}\nGenerated by: Codegen AI"
+  
+  slack:
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channels:
+      development: "#development"
+      notifications: "#codegen-notifications"
+      urgent: "#urgent-alerts"
+    message_templates:
+      task_created: "🚀 New task created: {task_type} - {description}"
+      task_completed: "✅ Task completed: {task_id} - {description}"
+      task_failed: "❌ Task failed: {task_id} - {description}"
+  
+  jira:
+    project_key: "DEV"
+    auto_create_ticket: false
+    issue_type_mapping:
+      BUG_FIX: "Bug"
+      FEATURE_IMPLEMENTATION: "Story"
+      PLAN_CREATION: "Epic"
+  
+  email:
+    smtp_server: "${SMTP_SERVER}"
+    smtp_port: 587
+    username: "${SMTP_USERNAME}"
+    password: "${SMTP_PASSWORD}"
+    from_address: "codegen@yourcompany.com"
+    templates:
+      task_assigned: "templates/email/task_assigned.html"
+      task_completed: "templates/email/task_completed.html"
+
+# Quality Gates
+quality_gates:
+  code_quality:
+    min_test_coverage: 80
+    max_complexity: 10
+    max_duplication: 5
+    security_scan_required: true
+  
+  documentation:
+    api_documentation_required: true
+    readme_update_required: true
+    changelog_update_required: true
+  
+  review:
+    peer_review_required: true
+    security_review_required_for: ["FEATURE_IMPLEMENTATION", "API_CREATION"]
+    performance_review_required_for: ["CODE_RESTRUCTURE", "PERFORMANCE_ANALYSIS"]
+
+# Analytics and Reporting
+analytics:
+  enabled: true
+  metrics_collection:
+    - "task_completion_time"
+    - "task_success_rate"
+    - "code_quality_metrics"
+    - "user_satisfaction"
+  
+  reports:
+    daily_summary: true
+    weekly_dashboard: true
+    monthly_trends: true
+  
+  retention_days: 365
+
+# Security Settings
+security:
+  api_token_encryption: true
+  audit_logging: true
+  sensitive_data_masking: true
+  access_control:
+    role_based: true
+    repository_based: true
+  
+  allowed_domains:
+    - "github.com"
+    - "gitlab.com"
+    - "bitbucket.org"
+
+# Performance Settings
+performance:
+  concurrent_tasks_limit: 5
+  task_timeout_default: "4 hours"
+  retry_backoff_factor: 2.0
+  rate_limiting:
+    requests_per_minute: 60
+    burst_limit: 10
+  
+  caching:
+    enabled: true
+    ttl_minutes: 30
+    max_cache_size_mb: 100
+
+# Experimental Features
+experimental:
+  ai_task_optimization: false
+  predictive_task_scheduling: false
+  auto_dependency_resolution: false
+  smart_context_extraction: true
+
