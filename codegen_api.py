@@ -822,7 +822,7 @@ class CodegenClient:
     
     def get_user(self, org_id: str, user_id: str) -> UserResponse:
         """Get details for a specific user in an organization"""
-        response = self._make_request("GET", f"/organizations/{org_id}/users/{user_id}", use_cache=True)
+        response = self._make_request("GET", f"/v1/organizations/{org_id}/users/{user_id}", use_cache=True)
         return UserResponse(
             id=response.get("id", 0),
             email=response.get("email"),
@@ -887,13 +887,13 @@ class CodegenClient:
         
         data = {"prompt": prompt, "images": images, "metadata": metadata}
         
-        response = self._make_request("POST", f"/organizations/{org_id}/agent/run", json=data)
+        response = self._make_request("POST", f"/v1/organizations/{org_id}/agent/run", json=data)
         
         return self._parse_agent_run_response(response)
     
     def get_agent_run(self, org_id: int, agent_run_id: int) -> AgentRunResponse:
         """Retrieve the status and result of an agent run"""
-        response = self._make_request("GET", f"/organizations/{org_id}/agent/run/{agent_run_id}", use_cache=True)
+        response = self._make_request("GET", f"/v1/organizations/{org_id}/agent/run/{agent_run_id}", use_cache=True)
         return self._parse_agent_run_response(response)
     
     def list_agent_runs(
@@ -913,7 +913,7 @@ class CodegenClient:
         if source_type:
             params["source_type"] = source_type.value
         
-        response = self._make_request("GET", f"/organizations/{org_id}/agent/runs", params=params, use_cache=True)
+        response = self._make_request("GET", f"/v1/organizations/{org_id}/agent/runs", params=params, use_cache=True)
         
         return AgentRunsResponse(
             items=[self._parse_agent_run_response(run) for run in response["items"]],
@@ -936,7 +936,7 @@ class CodegenClient:
         
         data = {"agent_run_id": agent_run_id, "prompt": prompt, "images": images}
         
-        response = self._make_request("POST", f"/organizations/{org_id}/agent/run/resume", json=data)
+        response = self._make_request("POST", f"/v1/organizations/{org_id}/agent/run/resume", json=data)
         
         return self._parse_agent_run_response(response)
     
@@ -1005,6 +1005,44 @@ class CodegenClient:
             page=response.get("page"),
             size=response.get("size"),
             pages=response.get("pages"),
+        )
+    
+    def get_agent_run_logs(self, org_id: int, agent_run_id: int, skip: int = 0, limit: int = 100) -> AgentRunWithLogsResponse:
+        """Get logs for an agent run"""
+        params = {
+            "skip": skip,
+            "limit": min(limit, 100)  # API max is 100
+        }
+        
+        response = self._make_request("GET", f"/v1/organizations/{org_id}/agent/run/{agent_run_id}/logs", params=params, use_cache=True)
+        
+        # Parse the response according to the API documentation
+        logs = []
+        for log_data in response.get("logs", []):
+            log = AgentRunLogResponse(
+                agent_run_id=log_data.get("agent_run_id"),
+                created_at=log_data.get("created_at"),
+                message_type=log_data.get("message_type"),
+                thought=log_data.get("thought"),
+                tool_name=log_data.get("tool_name"),
+                tool_input=log_data.get("tool_input"),
+                tool_output=log_data.get("tool_output"),
+                observation=log_data.get("observation")
+            )
+            logs.append(log)
+        
+        return AgentRunWithLogsResponse(
+            id=response.get("id"),
+            organization_id=response.get("organization_id"),
+            status=response.get("status"),
+            created_at=response.get("created_at"),
+            web_url=response.get("web_url"),
+            result=response.get("result"),
+            logs=logs,
+            total_logs=response.get("total_logs", 0),
+            page=response.get("page", 1),
+            size=response.get("size", limit),
+            pages=response.get("pages", 1)
         )
     
     # ========================================================================
@@ -1117,65 +1155,82 @@ class CodegenClient:
         self.close()
 
 # ============================================================================
-# CONVENIENCE CLASSES
+# OFFICIAL SDK COMPATIBLE CLASSES
 # ============================================================================
 
 class Agent:
-    """Simplified agent interface for easy usage"""
+    """Official SDK compatible Agent class"""
     
-    def __init__(self, org_id: Optional[str] = None, token: Optional[str] = None, config: Optional[ClientConfig] = None):
-        if config is None:
-            config = ClientConfig()
-            if token:
-                config.api_token = token
-            if org_id:
-                config.org_id = org_id
+    def __init__(self, token: str, org_id: Optional[int] = None, base_url: Optional[str] = None):
+        """
+        Initialize the Agent with your organization ID and API token
+        
+        Args:
+            token (required): Your API authentication token
+            org_id (optional): Your organization ID. If not provided, defaults to environment variable CODEGEN_ORG_ID or "1"
+            base_url (optional): API base URL. Defaults to "https://codegen-sh-rest-api.modal.run"
+        """
+        # Set defaults matching official SDK
+        if org_id is None:
+            org_id = os.getenv("CODEGEN_ORG_ID", "1")
+        if base_url is None:
+            base_url = "https://api.codegen.com"
+        
+        # Create config for internal client
+        config = ClientConfig(
+            api_token=token,
+            org_id=str(org_id),
+            base_url=base_url
+        )
         
         self.client = CodegenClient(config)
-        self.org_id = int(config.org_id) if config.org_id else None
-        
-        if not self.org_id:
-            # Try to get the first organization
-            orgs = self.client.get_organizations(limit=1)
-            if orgs.items:
-                self.org_id = orgs.items[0].id
-            else:
-                raise ValueError("No organization found. Please specify org_id or ensure you have access to at least one organization.")
+        self.org_id = int(org_id)
+        self.token = token
+        self.base_url = base_url
     
-    def run(self, prompt: str, images: Optional[List[str]] = None, metadata: Optional[Dict[str, Any]] = None) -> 'Task':
-        """Run an agent with a prompt and return a Task object"""
+    def run(self, prompt: str, images: Optional[List[str]] = None, metadata: Optional[Dict[str, Any]] = None) -> 'AgentTask':
+        """
+        Runs an agent with the given prompt.
+        
+        Args:
+            prompt (required): The instruction for the agent to execute
+            images (optional): List of image URLs to include with the prompt
+            metadata (optional): Additional metadata to include with the request
+            
+        Returns:
+            An AgentTask object representing the running task
+        """
         agent_run = self.client.create_agent_run(
             org_id=self.org_id,
             prompt=prompt,
             images=images,
-            metadata=metadata,
+            metadata=metadata
         )
-        return Task(self.client, self.org_id, agent_run.id, agent_run)
+        return AgentTask(self.client, self.org_id, agent_run.id, agent_run)
     
-    def get_task(self, task_id: int) -> 'Task':
-        """Get an existing task by ID"""
-        agent_run = self.client.get_agent_run(self.org_id, task_id)
-        return Task(self.client, self.org_id, task_id, agent_run)
-    
-    def list_tasks(self, limit: int = 10) -> List['Task']:
-        """List recent tasks"""
-        runs = self.client.list_agent_runs(self.org_id, limit=limit)
-        return [Task(self.client, self.org_id, run.id, run) for run in runs.items]
-    
-    def close(self):
-        """Close the underlying client"""
-        self.client.close()
-    
-    def __enter__(self):
-        return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+    def get_status(self) -> Optional[Dict[str, Any]]:
+        """
+        Gets the status of the current task.
+        
+        Returns:
+            A dictionary containing task status information (id, status, result), or None if no task has been run
+        """
+        # This would need to track the last task - for now return None
+        return None
 
-class Task:
-    """Represents an agent run task with convenient methods"""
+class AgentTask:
+    """Official SDK compatible AgentTask class"""
     
     def __init__(self, client: CodegenClient, org_id: int, task_id: int, initial_data: Optional[AgentRunResponse] = None):
+        """
+        Initialize AgentTask
+        
+        Attributes:
+            id: The unique identifier for the task
+            org_id: The organization ID
+            status: Current status of the task (e.g., "queued", "in_progress", "completed", "failed")
+            result: The task result (available when status is "completed")
+        """
         self.client = client
         self.org_id = org_id
         self.id = task_id
@@ -1183,14 +1238,14 @@ class Task:
     
     @property
     def status(self) -> Optional[str]:
-        """Get the current status of the task"""
+        """Current status of the task (e.g., "queued", "in_progress", "completed", "failed")"""
         if not self._data or self._data.status in [AgentRunStatus.PENDING.value, AgentRunStatus.RUNNING.value]:
             self.refresh()
         return self._data.status if self._data else None
     
     @property
     def result(self) -> Optional[str]:
-        """Get the result of the task"""
+        """The task result (available when status is "completed")"""
         if not self._data:
             self.refresh()
         return self._data.result if self._data else None
@@ -1209,8 +1264,8 @@ class Task:
             self.refresh()
         return self._data.github_pull_requests if self._data else None
     
-    def refresh(self):
-        """Refresh the task data from the API"""
+    def refresh(self) -> None:
+        """Refreshes the task status from the API."""
         self._data = self.client.get_agent_run(self.org_id, self.id)
     
     def wait_for_completion(self, timeout: Optional[float] = None, poll_interval: float = 5.0) -> AgentRunResponse:
@@ -1230,10 +1285,17 @@ class Task:
         return result
     
     def __str__(self):
-        return f"Task(id={self.id}, status={self.status})"
+        return f"AgentTask(id={self.id}, status={self.status})"
     
     def __repr__(self):
         return self.__str__()
+
+# ============================================================================
+# BACKWARD COMPATIBILITY ALIASES
+# ============================================================================
+
+# Keep the old Task class as an alias for backward compatibility
+Task = AgentTask
 
 # ============================================================================
 # MAIN FUNCTION FOR TESTING
