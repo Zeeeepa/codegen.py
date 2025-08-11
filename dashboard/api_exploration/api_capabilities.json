@@ -1,0 +1,12 @@
+{
+  "base_url": "https://api.codegen.com",
+  "organization_id": 323,
+  "authenticated": false,
+  "available_endpoints": [],
+  "rate_limits": {},
+  "pagination_limits": {},
+  "supported_operations": [],
+  "missing_operations": [],
+  "performance_metrics": {},
+  "discovered_features": []
+}

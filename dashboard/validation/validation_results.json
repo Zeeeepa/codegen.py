@@ -1,0 +1,47 @@
+{
+  "validation_start": "2025-08-11T10:37:39.540597",
+  "validation_end": "2025-08-11T10:37:39.543073",
+  "total_duration": 0.002476,
+  "total_tests": 5,
+  "passed_tests": 4,
+  "failed_tests": 1,
+  "success_rate": 80.0,
+  "status": "PASS",
+  "detailed_results": [
+    {
+      "test_name": "API Authentication",
+      "success": true,
+      "details": "Authenticated as testuser",
+      "duration": 1.9073486328125e-06,
+      "timestamp": "2025-08-11T10:37:39.540928"
+    },
+    {
+      "test_name": "Organization Access",
+      "success": true,
+      "details": "Found 1 organizations: Test Organization",
+      "duration": 4.291534423828125e-06,
+      "timestamp": "2025-08-11T10:37:39.541026"
+    },
+    {
+      "test_name": "Agent Run Listing",
+      "success": true,
+      "details": "Found 10 runs. Status breakdown: pending: 1, running: 13, completed: 20, failed: 10, cancelled: 2, paused: 4. Pagination: \u2713",
+      "duration": 0.0011661052703857422,
+      "timestamp": "2025-08-11T10:37:39.542529"
+    },
+    {
+      "test_name": "Agent Run Creation",
+      "success": true,
+      "details": "Created run #1050 successfully",
+      "duration": 4.696846008300781e-05,
+      "timestamp": "2025-08-11T10:37:39.542734"
+    },
+    {
+      "test_name": "Agent Run Management",
+      "success": false,
+      "details": "Operations tested: pause: \u2717, cancel: \u2713, final_status: \u2713",
+      "duration": 4.38690185546875e-05,
+      "timestamp": "2025-08-11T10:37:39.542869"
+    }
+  ]
+}
