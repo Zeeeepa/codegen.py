@@ -70,6 +70,101 @@ class AgentRunStatus(Enum):
     PAUSED = "paused"
 
 # ============================================================================
+# LOG ANALYSIS ENGINE
+# ============================================================================
+
+class LogAnalyzer:
+    """Intelligent log analysis for outcome detection"""
+    
+    # Tool patterns for different outcomes
+    PR_TOOLS = {'create_pr', 'github_create_pr', 'create_pull_request', 'pr_create'}
+    PLAN_TOOLS = {'file_write', 'create_file', 'write_file', 'text_editor'}
+    CODE_TOOLS = {'file_write', 'text_editor', 'create_file', 'edit_file', 'code_edit'}
+    DOC_TOOLS = {'file_write', 'create_file', 'text_editor', 'write_file'}
+    
+    # File patterns for different outcomes
+    PLAN_FILE_PATTERNS = {'plan.md', 'plan.txt', 'roadmap.md', 'strategy.md', 'approach.md'}
+    DOC_FILE_PATTERNS = {'readme.md', 'docs/', 'documentation', '.md', 'guide.md'}
+    CODE_FILE_PATTERNS = {'.py', '.js', '.ts', '.java', '.cpp', '.c', '.go', '.rs', '.rb'}
+    
+    @classmethod
+    def detect_outcomes(cls, logs: List['AgentRunLogResponse']) -> 'OutcomeDetection':
+        """Analyze logs to detect what was accomplished"""
+        outcome = OutcomeDetection()
+        
+        for log in logs:
+            # Track all tools used
+            if log.tool_name:
+                outcome.tools_used.append(log.tool_name)
+            
+            # Detect errors
+            if log.is_error:
+                outcome.errors_encountered = True
+                if log.observation:
+                    error_msg = str(log.observation)
+                    outcome.error_messages.append(error_msg)
+            
+            # Detect PR creation
+            if log.is_action and log.tool_name:
+                tool_name_lower = log.tool_name.lower()
+                
+                # PR creation detection
+                if any(pr_tool in tool_name_lower for pr_tool in cls.PR_TOOLS):
+                    outcome.pr_created = True
+                    # Extract PR URL from tool output
+                    if log.tool_output and isinstance(log.tool_output, dict):
+                        pr_url = log.tool_output.get('url') or log.tool_output.get('html_url')
+                        if pr_url:
+                            outcome.pr_urls.append(pr_url)
+                
+                # File creation detection
+                if any(tool in tool_name_lower for tool in cls.PLAN_TOOLS):
+                    if log.tool_input and isinstance(log.tool_input, dict):
+                        file_path = log.tool_input.get('path') or log.tool_input.get('filepath') or log.tool_input.get('file')
+                        if file_path:
+                            file_path_lower = file_path.lower()
+                            
+                            # Plan detection
+                            if any(pattern in file_path_lower for pattern in cls.PLAN_FILE_PATTERNS):
+                                outcome.plan_created = True
+                                outcome.plan_files.append(file_path)
+                            
+                            # Documentation detection
+                            elif any(pattern in file_path_lower for pattern in cls.DOC_FILE_PATTERNS):
+                                outcome.documentation_created = True
+                                outcome.doc_files.append(file_path)
+                            
+                            # Code detection
+                            elif any(file_path_lower.endswith(ext) for ext in cls.CODE_FILE_PATTERNS):
+                                outcome.code_generated = True
+                                outcome.code_files.append(file_path)
+            
+            # Additional detection from observations and thoughts
+            if log.thought:
+                thought_lower = log.thought.lower()
+                if 'creating pr' in thought_lower or 'pull request' in thought_lower:
+                    outcome.pr_created = True
+                if 'creating plan' in thought_lower or 'writing plan' in thought_lower:
+                    outcome.plan_created = True
+            
+            if log.observation and isinstance(log.observation, str):
+                obs_lower = log.observation.lower()
+                if 'pr created' in obs_lower or 'pull request created' in obs_lower:
+                    outcome.pr_created = True
+                if 'plan created' in obs_lower or 'plan written' in obs_lower:
+                    outcome.plan_created = True
+        
+        # Remove duplicates
+        outcome.tools_used = list(set(outcome.tools_used))
+        outcome.pr_urls = list(set(outcome.pr_urls))
+        outcome.plan_files = list(set(outcome.plan_files))
+        outcome.code_files = list(set(outcome.code_files))
+        outcome.doc_files = list(set(outcome.doc_files))
+        outcome.error_messages = list(set(outcome.error_messages))
+        
+        return outcome
+
+# ============================================================================
 # EXCEPTIONS
 # ============================================================================
 
@@ -164,6 +259,7 @@ class AgentRunResponse:
 
 @dataclass
 class AgentRunLogResponse:
+    """Comprehensive agent run log entry with all API fields"""
     agent_run_id: int
     created_at: str
     message_type: str
@@ -172,6 +268,35 @@ class AgentRunLogResponse:
     tool_input: Optional[Dict[str, Any]] = None
     tool_output: Optional[Dict[str, Any]] = None
     observation: Optional[Union[Dict[str, Any], str]] = None
+    
+    @property
+    def message_type_enum(self) -> MessageType:
+        """Get the message type as an enum"""
+        try:
+            return MessageType(self.message_type)
+        except ValueError:
+            # Handle unknown message types gracefully
+            return MessageType.ACTION
+    
+    @property
+    def is_action(self) -> bool:
+        """Check if this is an action log"""
+        return self.message_type == MessageType.ACTION.value
+    
+    @property
+    def is_error(self) -> bool:
+        """Check if this is an error log"""
+        return self.message_type == MessageType.ERROR.value
+    
+    @property
+    def is_final_answer(self) -> bool:
+        """Check if this is a final answer log"""
+        return self.message_type == MessageType.FINAL_ANSWER.value
+    
+    @property
+    def is_plan_evaluation(self) -> bool:
+        """Check if this is a plan evaluation log"""
+        return self.message_type == MessageType.PLAN_EVALUATION.value
 
 @dataclass
 class PaginatedResponse:
@@ -193,6 +318,44 @@ class OrganizationsResponse(PaginatedResponse):
     items: List[OrganizationResponse]
 
 @dataclass
+class OutcomeDetection:
+    """Detected outcomes from agent run analysis"""
+    pr_created: bool = False
+    pr_urls: List[str] = field(default_factory=list)
+    plan_created: bool = False
+    plan_files: List[str] = field(default_factory=list)
+    code_generated: bool = False
+    code_files: List[str] = field(default_factory=list)
+    documentation_created: bool = False
+    doc_files: List[str] = field(default_factory=list)
+    errors_encountered: bool = False
+    error_messages: List[str] = field(default_factory=list)
+    tools_used: List[str] = field(default_factory=list)
+    
+    @property
+    def outcome_markers(self) -> List[str]:
+        """Get formatted outcome markers for display"""
+        markers = []
+        if self.pr_created:
+            markers.append("✅ PR-Created ✅")
+        if self.plan_created:
+            markers.append("🧪 Plan-Created 🧪")
+        if self.code_generated:
+            markers.append("💻 Code-Generated 💻")
+        if self.documentation_created:
+            markers.append("📚 Docs-Created 📚")
+        if self.errors_encountered:
+            markers.append("❌ Errors-Found ❌")
+        return markers
+    
+    @property
+    def summary(self) -> str:
+        """Get a summary of detected outcomes"""
+        if not self.outcome_markers:
+            return "🔄 Task-Executed 🔄"
+        return " | ".join(self.outcome_markers)
+
+@dataclass
 class AgentRunWithLogsResponse:
     id: int
     organization_id: int
@@ -206,6 +369,11 @@ class AgentRunWithLogsResponse:
     page: Optional[int]
     size: Optional[int]
     pages: Optional[int]
+    
+    @property
+    def detected_outcomes(self) -> 'OutcomeDetection':
+        """Analyze logs to detect what was accomplished"""
+        return LogAnalyzer.detect_outcomes(self.logs)
 
 @dataclass
 class BulkOperationResult:

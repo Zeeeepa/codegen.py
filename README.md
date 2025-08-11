@@ -146,12 +146,54 @@ codegenapi status --task-id 12345
 # List recent tasks
 codegenapi list
 
-# View task logs (if available)
+# View task logs with comprehensive analysis
 codegenapi logs --task-id 12345
 
 # Resume a paused task
 codegenapi resume --task-id 12345 --query "Continue with the implementation"
 ```
+
+## 📊 **Enhanced Logging with Outcome Detection**
+
+The SDK provides **intelligent log analysis** that automatically detects what your agent accomplished:
+
+### **Automatic Outcome Detection**
+```bash
+codegenapi logs --task-id 12345
+```
+
+**Example Output:**
+```
+📋 Logs for task 12345:
+📊 Status: completed
+📄 Total logs: 25
+🎯 Outcomes: ✅ PR-Created ✅ | 🧪 Plan-Created 🧪 | 💻 Code-Generated 💻
+   📋 PRs: https://github.com/user/repo/pull/456
+   📝 Plans: implementation-plan.md, roadmap.md
+   💻 Code: src/auth.js, src/middleware.js, tests/auth.test.js
+🔧 Tools used: create_pr, file_write, text_editor, ripgrep_search
+
+ 1. [10:30:15] ⚡ ACTION
+    💭 I need to create a pull request for these changes
+    🔧 Tool: create_pr
+    📥 Input: title=Fix authentication bug
+    📤 Output: 🔗 https://github.com/user/repo/pull/456
+    👁️  Observation: Successfully created PR #456
+```
+
+### **Supported Outcome Types**
+- ✅ **PR-Created** - Automatically detects pull request creation
+- 🧪 **Plan-Created** - Identifies plans, roadmaps, and strategy documents  
+- 💻 **Code-Generated** - Tracks code file creation and modifications
+- 📚 **Docs-Created** - Notices documentation and README updates
+- ❌ **Errors-Found** - Highlights any errors encountered during execution
+
+### **Rich Log Analysis Features**
+- **Agent Reasoning**: See the agent's thought process at each step
+- **Tool Execution**: Detailed input/output for every tool used
+- **Smart Truncation**: Long content is intelligently summarized
+- **Context Awareness**: Logs are formatted based on their type and content
+- **Error Tracking**: Comprehensive error detection and reporting
 
 ### Available Task Types
 

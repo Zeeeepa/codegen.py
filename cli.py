@@ -310,7 +310,7 @@ Please analyze the repository and {task_description.lower()}. Provide detailed r
             sys.exit(1)
     
     def get_task_logs(self, task_id: int):
-        """Get logs for a specific task"""
+        """Get logs for a specific task with comprehensive analysis"""
         if not self.agent:
             print("❌ Error: Agent not initialized. Please run 'codegenapi config' first.")
             sys.exit(1)
@@ -318,19 +318,70 @@ Please analyze the repository and {task_description.lower()}. Provide detailed r
         try:
             logs = self.agent.client.get_agent_run_logs(self.agent.org_id, task_id)
             
+            # Display header with outcome detection
             print(f"📋 Logs for task {task_id}:")
             print(f"📊 Status: {logs.status}")
             print(f"📄 Total logs: {logs.total_logs}")
+            
+            # Show detected outcomes
+            outcomes = logs.detected_outcomes
+            if outcomes.outcome_markers:
+                print(f"🎯 Outcomes: {outcomes.summary}")
+                
+                # Show specific details
+                if outcomes.pr_created and outcomes.pr_urls:
+                    print(f"   📋 PRs: {', '.join(outcomes.pr_urls)}")
+                if outcomes.plan_created and outcomes.plan_files:
+                    print(f"   📝 Plans: {', '.join(outcomes.plan_files)}")
+                if outcomes.code_generated and outcomes.code_files:
+                    print(f"   💻 Code: {', '.join(outcomes.code_files[:3])}{'...' if len(outcomes.code_files) > 3 else ''}")
+                if outcomes.documentation_created and outcomes.doc_files:
+                    print(f"   📚 Docs: {', '.join(outcomes.doc_files[:3])}{'...' if len(outcomes.doc_files) > 3 else ''}")
+                if outcomes.errors_encountered:
+                    print(f"   ❌ Errors: {len(outcomes.error_messages)} found")
+            else:
+                print(f"🎯 Outcomes: {outcomes.summary}")
+            
+            print(f"🔧 Tools used: {', '.join(outcomes.tools_used[:5])}{'...' if len(outcomes.tools_used) > 5 else ''}")
             print()
             
-            for log in logs.logs:
-                print(f"[{log.created_at}] {log.message_type}")
+            # Display logs with enhanced formatting
+            for i, log in enumerate(logs.logs, 1):
+                # Format timestamp
+                timestamp = log.created_at.split('T')[1][:8] if 'T' in log.created_at else log.created_at
+                
+                # Message type with emoji
+                type_emoji = self._get_message_type_emoji(log.message_type)
+                print(f"{i:2d}. [{timestamp}] {type_emoji} {log.message_type}")
+                
+                # Agent thought
                 if log.thought:
-                    print(f"  💭 {log.thought}")
+                    thought_preview = log.thought[:100] + "..." if len(log.thought) > 100 else log.thought
+                    print(f"    💭 {thought_preview}")
+                
+                # Tool execution
                 if log.tool_name:
-                    print(f"  🔧 Tool: {log.tool_name}")
+                    print(f"    🔧 Tool: {log.tool_name}")
+                    
+                    # Show key tool inputs
+                    if log.tool_input:
+                        key_inputs = self._extract_key_inputs(log.tool_input)
+                        if key_inputs:
+                            print(f"    📥 Input: {key_inputs}")
+                    
+                    # Show tool results
+                    if log.tool_output:
+                        result_summary = self._extract_tool_result(log.tool_output)
+                        if result_summary:
+                            print(f"    📤 Output: {result_summary}")
+                
+                # Observation
                 if log.observation:
-                    print(f"  👁️  Observation: {log.observation}")
+                    obs_text = str(log.observation)
+                    if len(obs_text) > 150:
+                        obs_text = obs_text[:150] + "..."
+                    print(f"    👁️  Observation: {obs_text}")
+                
                 print()
                 
         except CodegenAPIError as e:
@@ -338,7 +389,81 @@ Please analyze the repository and {task_description.lower()}. Provide detailed r
             sys.exit(1)
         except Exception as e:
             print(f"❌ Error: {e}")
-            sys.exit(1)
+    
+    def _get_message_type_emoji(self, message_type: str) -> str:
+        """Get emoji for message type"""
+        emoji_map = {
+            "ACTION": "⚡",
+            "PLAN_EVALUATION": "🧠",
+            "FINAL_ANSWER": "✅",
+            "ERROR": "❌",
+            "USER_MESSAGE": "💬",
+            "USER_GITHUB_ISSUE_COMMENT": "💬",
+            "INITIAL_PR_GENERATION": "🔄",
+            "DETECT_PR_ERRORS": "🔍",
+            "FIX_PR_ERRORS": "🔧",
+            "PR_CREATION_FAILED": "❌",
+            "PR_EVALUATION": "📋",
+            "COMMIT_EVALUATION": "📝",
+            "AGENT_RUN_LINK": "🔗"
+        }
+        return emoji_map.get(message_type, "📝")
+    
+    def _extract_key_inputs(self, tool_input: dict) -> str:
+        """Extract key information from tool input"""
+        if not tool_input:
+            return ""
+        
+        # Common important fields
+        key_fields = ['path', 'filepath', 'file', 'query', 'prompt', 'message', 'title', 'url']
+        
+        for field in key_fields:
+            if field in tool_input:
+                value = str(tool_input[field])
+                if len(value) > 50:
+                    value = value[:50] + "..."
+                return f"{field}={value}"
+        
+        # If no key fields, show first key-value pair
+        if tool_input:
+            key, value = next(iter(tool_input.items()))
+            value_str = str(value)
+            if len(value_str) > 50:
+                value_str = value_str[:50] + "..."
+            return f"{key}={value_str}"
+        
+        return ""
+    
+    def _extract_tool_result(self, tool_output: dict) -> str:
+        """Extract key information from tool output"""
+        if not tool_output:
+            return ""
+        
+        # Look for success indicators
+        if 'status' in tool_output:
+            status = tool_output['status']
+            if status == 'success':
+                return "✅ Success"
+            elif status == 'error':
+                return "❌ Error"
+        
+        # Look for URLs (PR creation, etc.)
+        url_fields = ['url', 'html_url', 'web_url']
+        for field in url_fields:
+            if field in tool_output:
+                return f"🔗 {tool_output[field]}"
+        
+        # Look for file paths
+        if 'path' in tool_output or 'filepath' in tool_output:
+            path = tool_output.get('path') or tool_output.get('filepath')
+            return f"📁 {path}"
+        
+        # Look for counts or numbers
+        if 'count' in tool_output:
+            return f"📊 {tool_output['count']} items"
+        
+        # Generic success if we have output
+        return "✅ Completed"
 
 def main():
     cli = CodegenCLI()
