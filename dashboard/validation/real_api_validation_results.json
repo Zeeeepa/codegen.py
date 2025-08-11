@@ -1,0 +1,80 @@
+{
+  "validation_start": "2025-08-11T11:07:35.388308",
+  "validation_end": "2025-08-11T11:07:50.322341",
+  "total_duration": 14.934033,
+  "total_tests": 9,
+  "passed_tests": 7,
+  "failed_tests": 2,
+  "success_rate": 77.77777777777779,
+  "status": "PASS",
+  "detailed_results": [
+    {
+      "test_name": "Real API Authentication",
+      "success": true,
+      "details": "Authenticated as Zeeeepa (ID: 768)",
+      "duration": 0.00011873245239257812,
+      "timestamp": "2025-08-11T11:07:35.388855"
+    },
+    {
+      "test_name": "Real API Organizations",
+      "success": true,
+      "details": "Found 2 organizations: Zeeeepa (ID: 323), AUCTE (ID: 1566)",
+      "duration": 0.2614929676055908,
+      "timestamp": "2025-08-11T11:07:35.650431"
+    },
+    {
+      "test_name": "Real API Agent Runs Listing",
+      "success": true,
+      "details": "Found 10 runs. Status breakdown: COMPLETE: 9, ACTIVE: 1. Pagination: \u2713",
+      "duration": 1.2982017993927002,
+      "timestamp": "2025-08-11T11:07:36.948762"
+    },
+    {
+      "test_name": "Real API Agent Run Creation",
+      "success": false,
+      "details": "Run created but verification failed",
+      "duration": 3.879002332687378,
+      "timestamp": "2025-08-11T11:07:40.827878"
+    },
+    {
+      "test_name": "Real API Agent Run Details",
+      "success": true,
+      "details": "Retrieved details for run #71056. Status: ACTIVE. Required fields: \u2713",
+      "duration": 0.3072938919067383,
+      "timestamp": "2025-08-11T11:07:41.135567"
+    },
+    {
+      "test_name": "Real API Agent Run Logs",
+      "success": true,
+      "details": "No logs found for any runs (this is normal for new/pending runs)",
+      "duration": 2.6538209915161133,
+      "timestamp": "2025-08-11T11:07:43.790337"
+    },
+    {
+      "test_name": "Real API Agent Run Management",
+      "success": false,
+      "details": "Management operations on run #71057: cancel: \u2717, status_check: ACTIVE, pause: \u2717, resume: \u2713",
+      "duration": 3.879063606262207,
+      "timestamp": "2025-08-11T11:07:47.669772"
+    },
+    {
+      "test_name": "Real API Statistics and Search",
+      "success": true,
+      "details": "Stats: 100 runs, 0.0% success. Search: 5 results",
+      "duration": 1.8734188079833984,
+      "timestamp": "2025-08-11T11:07:49.543419"
+    },
+    {
+      "test_name": "Real API Projects",
+      "success": true,
+      "details": "Found 10 projects: voltagent, UI-TARS-desktop, aigne-framework, mcp-crawl4ai-rag, llama_deploy, workflows-py, create-llama, arxiver, deep-research, pink",
+      "duration": 0.7784478664398193,
+      "timestamp": "2025-08-11T11:07:50.322097"
+    }
+  ],
+  "api_config": {
+    "base_url": "https://api.codegen.com/v1",
+    "org_id": 323,
+    "token_preview": "sk-ce027...ac99"
+  }
+}
