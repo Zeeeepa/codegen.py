@@ -2,25 +2,29 @@
 Setup configuration for the Codegen Python SDK and CLI
 """
 
-from setuptools import setup, find_packages
 import os
+
+from setuptools import find_packages, setup
+
 
 # Read the README file
 def read_readme():
-    readme_path = os.path.join(os.path.dirname(__file__), 'README.md')
+    readme_path = os.path.join(os.path.dirname(__file__), "README.md")
     if os.path.exists(readme_path):
-        with open(readme_path, 'r', encoding='utf-8') as f:
+        with open(readme_path, "r", encoding="utf-8") as f:
             return f.read()
     return "Codegen Python SDK and CLI for agent orchestration"
 
+
 # Read version from __init__.py
 def get_version():
-    version_file = os.path.join(os.path.dirname(__file__), 'codegen', '__init__.py')
-    with open(version_file, 'r') as f:
+    version_file = os.path.join(os.path.dirname(__file__), "codegen", "__init__.py")
+    with open(version_file, "r") as f:
         for line in f:
-            if line.startswith('__version__'):
-                return line.split('=')[1].strip().strip('"').strip("'")
+            if line.startswith("__version__"):
+                return line.split("=")[1].strip().strip('"').strip("'")
     return "1.0.0"
+
 
 setup(
     name="codegen-py",
@@ -87,4 +91,3 @@ setup(
     keywords="codegen ai agent automation cli sdk api orchestration",
     zip_safe=False,
 )
-

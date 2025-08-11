@@ -2,11 +2,13 @@
 Pytest configuration and fixtures for Codegen tests
 """
 
-import pytest
 import os
-from unittest.mock import Mock, MagicMock
-from codegen.core import CodegenClient, ClientConfig, AgentRunResponse
+from unittest.mock import MagicMock, Mock
+
+import pytest
+
 from codegen.agents import Agent
+from codegen.core import AgentRunResponse, ClientConfig, CodegenClient
 from codegen.tasks import Task
 
 
@@ -53,7 +55,7 @@ def sample_agent_run_response():
         message="Test prompt",
         result="Test result",
         error=None,
-        github_pull_request=None
+        github_pull_request=None,
     )
 
 
@@ -76,14 +78,14 @@ def clean_env():
     """Clean environment variables before each test"""
     env_vars = ["CODEGEN_ORG_ID", "CODEGEN_API_TOKEN"]
     original_values = {}
-    
+
     for var in env_vars:
         original_values[var] = os.environ.get(var)
         if var in os.environ:
             del os.environ[var]
-    
+
     yield
-    
+
     # Restore original values
     for var, value in original_values.items():
         if value is not None:
@@ -97,4 +99,3 @@ def set_test_env():
     os.environ["CODEGEN_API_TOKEN"] = "test-token-456"
     yield
     # Cleanup handled by clean_env fixture
-
