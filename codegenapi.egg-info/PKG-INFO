@@ -1,3 +1,56 @@
+Metadata-Version: 2.4
+Name: codegenapi
+Version: 1.0.0
+Summary: A comprehensive Python SDK and CLI tool for agent-to-agent task execution using the Codegen API
+Home-page: https://github.com/Zeeeepa/codegen.py
+Author: Codegen Team
+Author-email: support@codegen.com
+Project-URL: Bug Reports, https://github.com/Zeeeepa/codegen.py/issues
+Project-URL: Source, https://github.com/Zeeeepa/codegen.py
+Project-URL: Documentation, https://docs.codegen.com
+Keywords: codegen ai agents api sdk cli automation development
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.25.0
+Requires-Dist: pyyaml>=5.4.0
+Requires-Dist: click>=8.0.0
+Requires-Dist: pytest>=6.0.0
+Requires-Dist: pytest-cov>=2.0.0
+Requires-Dist: black>=21.0.0
+Requires-Dist: flake8>=3.8.0
+Requires-Dist: mypy>=0.800
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-cov>=2.0; extra == "dev"
+Requires-Dist: black>=21.0; extra == "dev"
+Requires-Dist: flake8>=3.8; extra == "dev"
+Requires-Dist: mypy>=0.800; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
 # CodegenAPI - Real Agent Management Dashboard
 
 A comprehensive Python SDK and CLI tool for managing and monitoring **real Codegen agents** using the official Codegen SDK.
