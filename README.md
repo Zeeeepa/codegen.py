@@ -1,200 +1,180 @@
-# Codegen Python SDK & CLI
+# Codegen MCP Server
 
-A comprehensive Python SDK and command-line interface for [Codegen](https://codegen.com) agent orchestration and automation.
+A Model Context Protocol (MCP) server for [Codegen](https://codegen.com) agent orchestration and automation.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PyPI version](https://badge.fury.io/py/codegen-py.svg)](https://badge.fury.io/py/codegen-py)
-
-## 🚀 Features
+## Features
 
 - **🤖 Agent Orchestration**: Run and manage AI agents programmatically
-- **📋 Task Management**: Monitor task status, logs, and results
-- **⚡ CLI Interface**: Comprehensive command-line tools for agent operations
-- **🔧 Configuration Management**: Flexible configuration with presets
-- **📊 Monitoring & Stats**: Built-in metrics and performance tracking
-- **🔄 Async Support**: Full async/await support for high-performance applications
-- **🛡️ Error Handling**: Robust error handling with retries and rate limiting
-- **💾 Caching**: Intelligent caching for improved performance
+- **🔄 Orchestrator Tracking**: Automatically handle agent run completion with parent-child relationships
+- **⚡ Async Support**: Full async support for long-running agent operations
+- **🔧 Simple Configuration**: Easy setup with environment variables or config commands
+- **📋 Task Management**: List and monitor agent runs
 
-## 📦 Installation
+## Installation
 
 ```bash
-# Install from PyPI
-pip install codegen-py
+# Clone the repository
+git clone https://github.com/Zeeeepa/codegen.py.git
+cd codegen.py
 
-# Install with async support
-pip install codegen-py[async]
-
-# Install for development
-pip install -e .
+# Install dependencies
+pip install -r mcp/requirements.txt
 ```
 
-## 🏃 Quick Start
+## Configuration
 
-### Python SDK
-
-```python
-from codegen import Agent
-
-# Initialize the agent
-agent = Agent(org_id="your-org-id", token="your-api-token")
-
-# Run an agent with a prompt
-task = agent.run("Create a PR to fix the login bug")
-
-# Check the status
-print(f"Task {task.id}: {task.status}")
-
-# Wait for completion
-result = task.wait_for_completion()
-if result.github_pull_request:
-    print(f"PR created: {result.github_pull_request.url}")
-```
-
-### Command Line Interface
-
-```bash
-# Initialize configuration
-codegen config init
-
-# Run an agent
-codegen run "Add unit tests for the user service" --wait
-
-# Check task status
-codegen status --task-id 123
-
-# Monitor running tasks
-codegen monitor
-
-# View task logs
-codegen logs 123 --follow
-
-# Show statistics
-codegen stats
-```
-
-## 🔧 Configuration
-
-### Environment Variables
+Set your Codegen API credentials using environment variables:
 
 ```bash
 export CODEGEN_ORG_ID="your-organization-id"
 export CODEGEN_API_TOKEN="your-api-token"
 ```
 
-### Configuration File
+Or use the `codegenapi_config` tool:
 
-The CLI automatically creates a config file at `~/.codegen/config.json`:
+```bash
+# Using the MCP tool
+codegenapi_config set org_id YOUR_ORG_ID
+codegenapi_config set api_token YOUR_API_TOKEN
+```
+
+## Running the Server
+
+Start the MCP server using:
+
+```bash
+# Using uv
+uv --directory <Project'sRootDir>/mcp run server.py
+
+# Or using Python directly
+cd mcp
+python server.py
+```
+
+The server will start on `localhost:8080` by default. You can customize the host and port:
+
+```bash
+python server.py --host 0.0.0.0 --port 9000
+```
+
+## MCP Tools
+
+### 1. `codegenapi_new` - Start a new agent run
+
+```bash
+codegenapi_new --repo <REPO_NAME> --task <TYPE> --query "<DESCRIPTION>" [--branch <BRANCH_NAME>] [--pr <PR_NUMBER>]
+```
+
+**Parameters:**
+- `repo`: Repository name (e.g., 'Zeeeepa/codegen.py')
+- `task`: Task type (e.g., 'CREATE_PLAN', 'ANALYZE')
+- `query`: Description of the task
+- `branch` (optional): Branch name
+- `pr` (optional): PR number
+- `wait` (optional): Whether to wait for completion (default: false)
+- `timeout` (optional): Timeout in seconds when waiting
+
+**Example:**
+```bash
+codegenapi_new --repo Zeeeepa/codegen.py --task CREATE_PLAN --query "Create a comprehensive plan to properly structure codebase"
+```
+
+### 2. `codegenapi_resume` - Resume agent run
+
+```bash
+codegenapi_resume --agent_run_id <RUN_ID> [--query "<DESCRIPTION>"] [--task <TYPE>]
+```
+
+**Parameters:**
+- `agent_run_id`: ID of the agent run to resume
+- `query` (optional): New query to send to the agent
+- `task` (optional): Task type
+- `wait` (optional): Whether to wait for completion (default: false)
+- `timeout` (optional): Timeout in seconds when waiting
+
+**Example:**
+```bash
+codegenapi_resume --agent_run_id 11745 --query "analyze frontend of the codebase"
+```
+
+### 3. `codegenapi_config` - Configure settings
+
+```bash
+codegenapi_config <ACTION> [--key <KEY>] [--value <VALUE>]
+```
+
+**Parameters:**
+- `action`: Action to perform (get, set, list)
+- `key` (for get/set): Configuration key
+- `value` (for set): Configuration value
+
+**Examples:**
+```bash
+# Set API token
+codegenapi_config set --key api_token --value YOUR_TOKEN
+
+# Set organization ID
+codegenapi_config set --key org_id --value YOUR_ORG_ID
+
+# List all configuration
+codegenapi_config list
+```
+
+### 4. `codegenapi_list` - List agent runs
+
+```bash
+codegenapi_list [--status <STATUS>] [--repo <REPO>] [--limit <LIMIT>]
+```
+
+**Parameters:**
+- `status` (optional): Filter by status (running, completed, failed, cancelled)
+- `repo` (optional): Filter by repository
+- `limit` (optional): Maximum number of runs to return (default: 20)
+
+**Example:**
+```bash
+codegenapi_list --status running --repo Zeeeepa/codegen.py --limit 10
+```
+
+## Orchestrator Tracking
+
+The MCP server implements a parent-child relationship between agent runs to handle async completion:
+
+1. When an agent run is created, it can specify an orchestrator ID (parent agent)
+2. When a child agent run completes:
+   - If the orchestrator is still running: The result is sent directly to the orchestrator
+   - If the orchestrator is not running: The orchestrator is automatically resumed with the result
+
+This ensures that long-running agent operations can complete even if the client disconnects, with results properly routed back to the parent agent when it reconnects.
+
+## Testing with Real Credentials
+
+You can test the MCP server with these credentials:
+
+```
+CODEGEN_ORG_ID=323
+CODEGEN_API_TOKEN=sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99
+```
+
+## Integration with Claude Code
+
+To use this MCP server with Claude Code, add the following configuration to your `.claude.json`:
 
 ```json
 {
-  "org_id": "your-org-id",
-  "token": "your-api-token",
-  "preset": "production",
-  "default_timeout": 300,
-  "poll_interval": 5.0
+  "codegenapi": {
+    "command": "uv",
+    "args": [
+      "--directory",
+      "<Project'sRootDir>/mcp",
+      "run",
+      "server.py"
+    ]
+  }
 }
 ```
 
-### Configuration Presets
+## License
 
-Choose from optimized presets for different use cases:
-
-- **`development`**: Fast feedback, minimal caching
-- **`production`**: Balanced performance and reliability
-- **`high_throughput`**: Optimized for bulk operations
-- **`low_latency`**: Minimal response times
-- **`batch_processing`**: Large-scale batch operations
-
-```python
-from codegen.core import ConfigPresets
-
-# Use a preset
-config = ConfigPresets.production()
-agent = Agent(config=config)
-```
-
-## 📚 CLI Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `run` | Execute an agent with a prompt | `codegen run "Fix the bug in auth.py"` |
-| `status` | Check task status or list tasks | `codegen status --task-id 123` |
-| `config` | Manage configuration | `codegen config set --key timeout --value 600` |
-| `monitor` | Monitor running tasks | `codegen monitor --interval 10` |
-| `logs` | View task logs | `codegen logs 123 --follow` |
-| `stats` | Show client statistics | `codegen stats` |
-
-## 🏗️ Project Structure
-
-```
-codegen/
-├── __init__.py          # Main package exports
-├── core.py              # Core client and utilities
-├── agents.py            # Agent management
-├── tasks.py             # Task handling and monitoring
-├── cli.py               # Command-line interface
-└── commands/            # CLI command implementations
-    ├── __init__.py
-    ├── run.py
-    ├── status.py
-    └── config.py
-
-tests/                   # Comprehensive test suite
-├── test_core.py
-├── test_agents.py
-├── test_tasks.py
-├── test_cli.py
-└── integration/         # Integration tests
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=codegen --cov-report=html
-
-# Run only unit tests
-pytest -m "not integration"
-
-# Run integration tests (requires API credentials)
-pytest -m integration
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests for your changes
-5. Run the test suite (`pytest`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🔗 Links
-
-- **Documentation**: [https://docs.codegen.com](https://docs.codegen.com)
-- **API Reference**: [https://api.codegen.com/docs](https://api.codegen.com/docs)
-- **GitHub**: [https://github.com/Zeeeepa/codegen.py](https://github.com/Zeeeepa/codegen.py)
-- **PyPI**: [https://pypi.org/project/codegen-py/](https://pypi.org/project/codegen-py/)
-- **Issues**: [https://github.com/Zeeeepa/codegen.py/issues](https://github.com/Zeeeepa/codegen.py/issues)
-
-## 🆘 Support
-
-- 📧 Email: [support@codegen.com](mailto:support@codegen.com)
-- 💬 Discord: [Join our community](https://discord.gg/codegen)
-- 📖 Documentation: [docs.codegen.com](https://docs.codegen.com)
-
----
-
-Made with ❤️ by the [Codegen](https://codegen.com) team
+MIT
 
