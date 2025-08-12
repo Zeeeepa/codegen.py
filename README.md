@@ -69,7 +69,8 @@ The MCP server supports the following commands:
     "branch": "codegen-bot/code-quality-analysis-plan-1754927688",
     "pr": 9,
     "task": "CREATE_PLAN",
-    "query": "Create a comprehensive plan to properly structure codebase"
+    "query": "Create a comprehensive plan to properly structure codebase",
+    "orchestrator_run_id": 12345
   }
 }
 ```
@@ -80,6 +81,7 @@ Parameters:
 - `pr`: PR number (optional)
 - `task`: Task type (optional)
 - `query`: Task description (required)
+- `orchestrator_run_id`: ID of the orchestrator agent run (optional)
 
 ### 2. Resume an Agent Run
 
@@ -89,7 +91,8 @@ Parameters:
   "args": {
     "agent_run_id": 11745,
     "task": "ANALYZE",
-    "query": "Analyze frontend of the codebase"
+    "query": "Analyze frontend of the codebase",
+    "orchestrator_run_id": 12345
   }
 }
 ```
@@ -98,6 +101,7 @@ Parameters:
 - `agent_run_id`: Agent run ID to resume (required)
 - `task`: Task type (optional)
 - `query`: Additional instructions (required)
+- `orchestrator_run_id`: ID of the orchestrator agent run (optional)
 
 ### 3. Configure API Token and Organization ID
 
@@ -238,7 +242,33 @@ To use this MCP server with AI assistants, configure it as follows:
 
 The MCP server handles agent runs asynchronously. When you start a new run or resume an existing one, the server returns immediately with a task ID. You can then use the `task_status` command to check the status of the task and retrieve the result when it's completed.
 
+## Orchestrator Tracking
+
+The MCP server supports orchestrator tracking, which allows you to create hierarchical agent runs. This is useful for creating complex workflows where one agent (the orchestrator) creates and manages multiple child agents.
+
+### How It Works
+
+1. When creating a new agent run, you can specify an `orchestrator_run_id` parameter to indicate that this run is a child of another agent run.
+2. When a child agent run completes, the MCP server will:
+   - If the orchestrator is still running: Send the result directly to the orchestrator (future enhancement)
+   - If the orchestrator is not running: Automatically resume the orchestrator with the result
+
+### Example Usage
+
+```json
+{
+  "command": "new",
+  "args": {
+    "repo": "Zeeeepa/codegen.py",
+    "task": "CREATE_PLAN",
+    "query": "Create a comprehensive plan to properly structure codebase",
+    "orchestrator_run_id": 12345
+  }
+}
+```
+
+This creates a new agent run that is a child of agent run 12345. When this run completes, the result will be automatically sent to the orchestrator.
+
 ## License
 
 MIT
-

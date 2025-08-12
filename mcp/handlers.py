@@ -28,6 +28,7 @@ def handle_new_command(args: Dict[str, Any]) -> Dict[str, Any]:
             - pr: PR number (optional)
             - task: Task type (e.g., "CREATE_PLAN")
             - query: Task description
+            - orchestrator_run_id: ID of the orchestrator agent run (optional)
     
     Returns:
         Response dictionary with task information
@@ -58,6 +59,18 @@ def handle_new_command(args: Dict[str, Any]) -> Dict[str, Any]:
             "details": "Use 'codegenapi config set org_id YOUR_ORG_ID' to configure your organization ID."
         }
     
+    # Get orchestrator run ID if provided
+    orchestrator_run_id = args.get("orchestrator_run_id")
+    if orchestrator_run_id and isinstance(orchestrator_run_id, str):
+        try:
+            orchestrator_run_id = int(orchestrator_run_id)
+        except ValueError:
+            return {
+                "status": "error",
+                "error": "Invalid orchestrator_run_id",
+                "details": "The orchestrator_run_id must be an integer."
+            }
+    
     # Create task
     task_manager = get_task_manager()
     task_id = task_manager.create_task(metadata={
@@ -65,7 +78,8 @@ def handle_new_command(args: Dict[str, Any]) -> Dict[str, Any]:
         "repo": args.get("repo"),
         "branch": args.get("branch"),
         "pr": args.get("pr"),
-        "task_type": args.get("task")
+        "task_type": args.get("task"),
+        "orchestrator_run_id": orchestrator_run_id
     })
     
     # Build prompt
@@ -96,14 +110,15 @@ def handle_new_command(args: Dict[str, Any]) -> Dict[str, Any]:
         repo=args.get("repo"),
         branch=args.get("branch"),
         pr=args.get("pr"),
-        task_type=args.get("task")
+        task_type=args.get("task"),
+        orchestrator_run_id=orchestrator_run_id
     )
     
     # Get task info
     task_info = task_manager.get_task(task_id)
     
     # Return response
-    return {
+    response = {
         "status": "success",
         "task_id": task_id,
         "agent_run_id": task_info.agent_run_id,
@@ -111,6 +126,12 @@ def handle_new_command(args: Dict[str, Any]) -> Dict[str, Any]:
         "web_url": task_info.web_url,
         "message": "Agent run started successfully."
     }
+    
+    # Include orchestrator info if provided
+    if orchestrator_run_id:
+        response["orchestrator_run_id"] = orchestrator_run_id
+    
+    return response
 
 
 def handle_resume_command(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -122,6 +143,7 @@ def handle_resume_command(args: Dict[str, Any]) -> Dict[str, Any]:
             - agent_run_id: Agent run ID to resume
             - task: Task type (optional)
             - query: Additional instructions
+            - orchestrator_run_id: ID of the orchestrator agent run (optional)
     
     Returns:
         Response dictionary with task information
@@ -159,12 +181,25 @@ def handle_resume_command(args: Dict[str, Any]) -> Dict[str, Any]:
             "details": "Use 'codegenapi config set org_id YOUR_ORG_ID' to configure your organization ID."
         }
     
+    # Get orchestrator run ID if provided
+    orchestrator_run_id = args.get("orchestrator_run_id")
+    if orchestrator_run_id and isinstance(orchestrator_run_id, str):
+        try:
+            orchestrator_run_id = int(orchestrator_run_id)
+        except ValueError:
+            return {
+                "status": "error",
+                "error": "Invalid orchestrator_run_id",
+                "details": "The orchestrator_run_id must be an integer."
+            }
+    
     # Create task
     task_manager = get_task_manager()
     task_id = task_manager.create_task(metadata={
         "command": "resume",
         "agent_run_id": args["agent_run_id"],
-        "task_type": args.get("task")
+        "task_type": args.get("task"),
+        "orchestrator_run_id": orchestrator_run_id
     })
     
     # Build prompt
@@ -184,14 +219,15 @@ def handle_resume_command(args: Dict[str, Any]) -> Dict[str, Any]:
         org_id=org_id,
         agent_run_id=int(args["agent_run_id"]),
         prompt=prompt,
-        task_type=args.get("task")
+        task_type=args.get("task"),
+        orchestrator_run_id=orchestrator_run_id
     )
     
     # Get task info
     task_info = task_manager.get_task(task_id)
     
     # Return response
-    return {
+    response = {
         "status": "success",
         "task_id": task_id,
         "agent_run_id": args["agent_run_id"],
@@ -199,6 +235,12 @@ def handle_resume_command(args: Dict[str, Any]) -> Dict[str, Any]:
         "web_url": task_info.web_url,
         "message": "Agent run resumed successfully."
     }
+    
+    # Include orchestrator info if provided
+    if orchestrator_run_id:
+        response["orchestrator_run_id"] = orchestrator_run_id
+    
+    return response
 
 
 def handle_config_command(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -421,4 +463,3 @@ def handle_task_status_command(args: Dict[str, Any]) -> Dict[str, Any]:
         "web_url": task_info.web_url,
         "metadata": task_info.metadata
     }
-

@@ -39,7 +39,8 @@ class TaskInfo:
         metadata: Optional[Dict[str, Any]] = None,
         created_at: Optional[str] = None,
         completed_at: Optional[str] = None,
-        web_url: Optional[str] = None
+        web_url: Optional[str] = None,
+        orchestrator_run_id: Optional[int] = None
     ):
         self.task_id = task_id
         self.agent_run_id = agent_run_id
@@ -50,6 +51,7 @@ class TaskInfo:
         self.created_at = created_at or datetime.now().isoformat()
         self.completed_at = completed_at
         self.web_url = web_url
+        self.orchestrator_run_id = orchestrator_run_id
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -62,7 +64,8 @@ class TaskInfo:
             "metadata": self.metadata,
             "created_at": self.created_at,
             "completed_at": self.completed_at,
-            "web_url": self.web_url
+            "web_url": self.web_url,
+            "orchestrator_run_id": self.orchestrator_run_id
         }
     
     @classmethod
@@ -77,7 +80,8 @@ class TaskInfo:
             metadata=data.get("metadata", {}),
             created_at=data.get("created_at"),
             completed_at=data.get("completed_at"),
-            web_url=data.get("web_url")
+            web_url=data.get("web_url"),
+            orchestrator_run_id=data.get("orchestrator_run_id")
         )
 
 
@@ -190,6 +194,82 @@ class TaskManager:
             self.callbacks[task_id].append(callback)
             return True
     
+    def _handle_orchestrator_notification(self,
+                                         orchestrator_run_id: int,
+                                         api_token: str,
+                                         org_id: str,
+                                         result: str,
+                                         child_task_id: str,
+                                         child_run_id: Optional[int] = None,
+                                         is_error: bool = False) -> None:
+        """Handle notification to orchestrator agent.
+        
+        This method checks if the orchestrator agent is still running and either:
+        1. If running: Sends the result directly (future enhancement)
+        2. If not running: Resumes the orchestrator with the result
+        
+        Args:
+            orchestrator_run_id: ID of the orchestrator agent run
+            api_token: API token
+            org_id: Organization ID
+            result: Result to send to orchestrator
+            child_task_id: ID of the child task
+            child_run_id: ID of the child agent run (optional)
+            is_error: Whether the result is an error (default: False)
+        """
+        try:
+            # Initialize agent
+            agent = Agent(org_id=org_id, token=api_token)
+            
+            # Get orchestrator task
+            orchestrator_task = agent.get_task(orchestrator_run_id)
+            
+            # Check if orchestrator is still running
+            orchestrator_task.refresh()
+            
+            if orchestrator_task.status == AgentRunStatus.RUNNING.value:
+                # Orchestrator is still running
+                # In a future enhancement, we could send the result directly
+                # For now, we'll log it
+                logger.info(f"Orchestrator {orchestrator_run_id} is still running. Result from {child_task_id}: {result[:100]}...")
+                
+                # Future enhancement: Send result directly to orchestrator
+                # This would require a new API endpoint or mechanism
+            else:
+                # Orchestrator is not running, resume it with the result
+                logger.info(f"Resuming orchestrator {orchestrator_run_id} with result from {child_task_id}")
+                
+                # Create a formatted message
+                if is_error:
+                    message = f"Error from task {child_task_id}"
+                    if child_run_id:
+                        message += f" (run {child_run_id})"
+                    message += f": {result}"
+                else:
+                    message = f"Result from task {child_task_id}"
+                    if child_run_id:
+                        message += f" (run {child_run_id})"
+                    message += f": {result}"
+                
+                # Create a new task for resuming the orchestrator
+                resume_task_id = self.create_task(metadata={
+                    "command": "resume",
+                    "orchestrator_run_id": orchestrator_run_id,
+                    "child_task_id": child_task_id,
+                    "child_run_id": child_run_id
+                })
+                
+                # Resume the orchestrator
+                self.resume_agent_task(
+                    task_id=resume_task_id,
+                    api_token=api_token,
+                    org_id=org_id,
+                    agent_run_id=orchestrator_run_id,
+                    prompt=message
+                )
+        except Exception as e:
+            logger.error(f"Error handling orchestrator notification: {e}")
+    
     def run_agent_task(self, 
                       task_id: str, 
                       api_token: str,
@@ -199,8 +279,22 @@ class TaskManager:
                       branch: Optional[str] = None,
                       pr: Optional[int] = None,
                       task_type: Optional[str] = None,
-                      timeout: int = 3600) -> None:
-        """Run an agent task asynchronously."""
+                      timeout: int = 3600,
+                      orchestrator_run_id: Optional[int] = None) -> None:
+        """Run an agent task asynchronously.
+        
+        Args:
+            task_id: Task ID
+            api_token: API token
+            org_id: Organization ID
+            prompt: Task prompt
+            repo: Repository name (optional)
+            branch: Branch name (optional)
+            pr: PR number (optional)
+            task_type: Task type (optional)
+            timeout: Timeout in seconds (default: 3600)
+            orchestrator_run_id: ID of the orchestrator agent run (optional)
+        """
         def _run_task():
             try:
                 # Update task status to running
@@ -211,7 +305,8 @@ class TaskManager:
                     "repo": repo,
                     "branch": branch,
                     "pr": pr,
-                    "task_type": task_type
+                    "task_type": task_type,
+                    "orchestrator_run_id": orchestrator_run_id
                 }
                 
                 # Filter out None values
@@ -228,7 +323,8 @@ class TaskManager:
                     task_id, 
                     agent_run_id=agent_task.id,
                     web_url=agent_task.web_url,
-                    status="running"
+                    status="running",
+                    orchestrator_run_id=orchestrator_run_id
                 )
                 
                 # Wait for completion
@@ -242,6 +338,19 @@ class TaskManager:
                         result=completed_task.result,
                         completed_at=datetime.now().isoformat()
                     )
+                    
+                    # If this task has an orchestrator, check if it's still running
+                    # and if not, resume it with the result
+                    if orchestrator_run_id:
+                        self._handle_orchestrator_notification(
+                            orchestrator_run_id=orchestrator_run_id,
+                            api_token=api_token,
+                            org_id=org_id,
+                            result=completed_task.result,
+                            child_task_id=task_id,
+                            child_run_id=agent_task.id
+                        )
+                        
                 except Exception as e:
                     # Check if task is still running
                     agent_task.refresh()
@@ -253,20 +362,46 @@ class TaskManager:
                         )
                     else:
                         # Task failed
+                        error_msg = str(e)
                         self.update_task(
                             task_id,
                             status="failed",
-                            error=str(e),
+                            error=error_msg,
                             completed_at=datetime.now().isoformat()
                         )
+                        
+                        # If this task has an orchestrator, notify it of the failure
+                        if orchestrator_run_id:
+                            self._handle_orchestrator_notification(
+                                orchestrator_run_id=orchestrator_run_id,
+                                api_token=api_token,
+                                org_id=org_id,
+                                result=f"Error: {error_msg}",
+                                child_task_id=task_id,
+                                child_run_id=agent_task.id,
+                                is_error=True
+                            )
             except Exception as e:
                 # Update task with error
+                error_msg = str(e)
                 self.update_task(
                     task_id,
                     status="failed",
-                    error=str(e),
+                    error=error_msg,
                     completed_at=datetime.now().isoformat()
                 )
+                
+                # If this task has an orchestrator, notify it of the failure
+                if orchestrator_run_id:
+                    self._handle_orchestrator_notification(
+                        orchestrator_run_id=orchestrator_run_id,
+                        api_token=api_token,
+                        org_id=org_id,
+                        result=f"Error: {error_msg}",
+                        child_task_id=task_id,
+                        child_run_id=None,
+                        is_error=True
+                    )
         
         # Start task in a new thread
         thread = threading.Thread(target=_run_task)
@@ -284,8 +419,20 @@ class TaskManager:
                          agent_run_id: int,
                          prompt: str,
                          task_type: Optional[str] = None,
-                         timeout: int = 3600) -> None:
-        """Resume an agent task asynchronously."""
+                         timeout: int = 3600,
+                         orchestrator_run_id: Optional[int] = None) -> None:
+        """Resume an agent task asynchronously.
+        
+        Args:
+            task_id: Task ID
+            api_token: API token
+            org_id: Organization ID
+            agent_run_id: Agent run ID to resume
+            prompt: Task prompt
+            task_type: Task type (optional)
+            timeout: Timeout in seconds (default: 3600)
+            orchestrator_run_id: ID of the orchestrator agent run (optional)
+        """
         def _resume_task():
             try:
                 # Update task status to running
@@ -305,7 +452,8 @@ class TaskManager:
                     task_id, 
                     agent_run_id=agent_run_id,
                     web_url=resumed_task.web_url,
-                    status="running"
+                    status="running",
+                    orchestrator_run_id=orchestrator_run_id
                 )
                 
                 # Wait for completion
@@ -319,6 +467,18 @@ class TaskManager:
                         result=completed_task.result,
                         completed_at=datetime.now().isoformat()
                     )
+                    
+                    # If this task has an orchestrator, check if it's still running
+                    # and if not, resume it with the result
+                    if orchestrator_run_id:
+                        self._handle_orchestrator_notification(
+                            orchestrator_run_id=orchestrator_run_id,
+                            api_token=api_token,
+                            org_id=org_id,
+                            result=completed_task.result,
+                            child_task_id=task_id,
+                            child_run_id=agent_run_id
+                        )
                 except Exception as e:
                     # Check if task is still running
                     agent_task.refresh()
@@ -330,20 +490,46 @@ class TaskManager:
                         )
                     else:
                         # Task failed
+                        error_msg = str(e)
                         self.update_task(
                             task_id,
                             status="failed",
-                            error=str(e),
+                            error=error_msg,
                             completed_at=datetime.now().isoformat()
                         )
+                        
+                        # If this task has an orchestrator, notify it of the failure
+                        if orchestrator_run_id:
+                            self._handle_orchestrator_notification(
+                                orchestrator_run_id=orchestrator_run_id,
+                                api_token=api_token,
+                                org_id=org_id,
+                                result=f"Error: {error_msg}",
+                                child_task_id=task_id,
+                                child_run_id=agent_run_id,
+                                is_error=True
+                            )
             except Exception as e:
                 # Update task with error
+                error_msg = str(e)
                 self.update_task(
                     task_id,
                     status="failed",
-                    error=str(e),
+                    error=error_msg,
                     completed_at=datetime.now().isoformat()
                 )
+                
+                # If this task has an orchestrator, notify it of the failure
+                if orchestrator_run_id:
+                    self._handle_orchestrator_notification(
+                        orchestrator_run_id=orchestrator_run_id,
+                        api_token=api_token,
+                        org_id=org_id,
+                        result=f"Error: {error_msg}",
+                        child_task_id=task_id,
+                        child_run_id=agent_run_id,
+                        is_error=True
+                    )
         
         # Start task in a new thread
         thread = threading.Thread(target=_resume_task)
