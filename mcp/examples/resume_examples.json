@@ -1,0 +1,21 @@
+{
+  "name": "codegenapi_resume",
+  "description": "Resume an existing agent run",
+  "examples": [
+    {
+      "title": "Basic resume",
+      "arguments": {
+        "agent_run_id": 12345,
+        "query": "Please also include error handling"
+      }
+    },
+    {
+      "title": "Resume with task context",
+      "arguments": {
+        "agent_run_id": 12345,
+        "task": "ANALYZE",
+        "query": "Focus on security vulnerabilities in the authentication flow"
+      }
+    }
+  ]
+}
