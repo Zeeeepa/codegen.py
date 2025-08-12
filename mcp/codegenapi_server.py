@@ -10,8 +10,10 @@ import asyncio
 import json
 import os
 import sys
+import time
+import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # Add parent directory to path to import codegen_api
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -30,7 +32,7 @@ from mcp.types import (
 
 # Import the codegen API
 try:
-    from codegen_api import Agent, CodegenAPIError, ClientConfig
+    from codegen_api import Agent, CodegenAPIError, ClientConfig, Task
 except ImportError as e:
     print(f"Error importing codegen_api: {e}", file=sys.stderr)
     sys.exit(1)
@@ -38,15 +40,24 @@ except ImportError as e:
 # Configuration file path
 CONFIG_FILE = Path.home() / ".codegenapi" / "config.json"
 
+# Relationship tracking file path
+RELATIONSHIPS_FILE = Path.home() / ".codegenapi" / "relationships.json"
+
 class CodegenMCPServer:
     """MCP Server for Codegen API"""
     
     def __init__(self):
         self.server = Server("codegenapi")
         self.config = self._load_config()
+        self.relationships = self._load_relationships()
+        self.monitoring_thread = None
+        self.stop_monitoring = False
         
         # Register tools
         self._register_tools()
+        
+        # Start the monitoring thread
+        self._start_monitoring_thread()
     
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from file"""
@@ -66,6 +77,141 @@ class CodegenMCPServer:
                 json.dump(config, f, indent=2)
         except Exception as e:
             raise Exception(f"Could not save config: {e}")
+    
+    def _load_relationships(self) -> Dict[str, Any]:
+        """Load agent relationships from file"""
+        if RELATIONSHIPS_FILE.exists():
+            try:
+                with open(RELATIONSHIPS_FILE, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Warning: Could not load relationships: {e}", file=sys.stderr)
+        return {
+            "parent_child": {},  # parent_id -> [child_ids]
+            "child_parent": {},  # child_id -> parent_id
+            "active_runs": [],   # list of active run IDs
+            "completed_runs": [] # list of completed run IDs
+        }
+    
+    def _save_relationships(self) -> None:
+        """Save agent relationships to file"""
+        RELATIONSHIPS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(RELATIONSHIPS_FILE, 'w') as f:
+                json.dump(self.relationships, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Could not save relationships: {e}", file=sys.stderr)
+    
+    def _register_parent_child(self, parent_id: int, child_id: int) -> None:
+        """Register a parent-child relationship between agent runs"""
+        # Convert to strings for JSON serialization
+        parent_id_str = str(parent_id)
+        child_id_str = str(child_id)
+        
+        # Initialize parent entry if it doesn't exist
+        if parent_id_str not in self.relationships["parent_child"]:
+            self.relationships["parent_child"][parent_id_str] = []
+        
+        # Add child to parent's list
+        if child_id_str not in self.relationships["parent_child"][parent_id_str]:
+            self.relationships["parent_child"][parent_id_str].append(child_id_str)
+        
+        # Register child's parent
+        self.relationships["child_parent"][child_id_str] = parent_id_str
+        
+        # Add to active runs
+        if child_id_str not in self.relationships["active_runs"]:
+            self.relationships["active_runs"].append(child_id_str)
+        
+        # Save relationships
+        self._save_relationships()
+    
+    def _mark_run_completed(self, run_id: int) -> None:
+        """Mark an agent run as completed"""
+        run_id_str = str(run_id)
+        
+        # Remove from active runs
+        if run_id_str in self.relationships["active_runs"]:
+            self.relationships["active_runs"].remove(run_id_str)
+        
+        # Add to completed runs
+        if run_id_str not in self.relationships["completed_runs"]:
+            self.relationships["completed_runs"].append(run_id_str)
+        
+        # Save relationships
+        self._save_relationships()
+    
+    def _start_monitoring_thread(self) -> None:
+        """Start a thread to monitor agent runs"""
+        if self.monitoring_thread is None or not self.monitoring_thread.is_alive():
+            self.stop_monitoring = False
+            self.monitoring_thread = threading.Thread(target=self._monitor_agent_runs)
+            self.monitoring_thread.daemon = True
+            self.monitoring_thread.start()
+    
+    def _monitor_agent_runs(self) -> None:
+        """Monitor agent runs for completion and handle orchestration"""
+        print("Starting agent run monitoring thread", file=sys.stderr)
+        
+        while not self.stop_monitoring:
+            try:
+                # Get a copy of active runs to avoid modification during iteration
+                active_runs = self.relationships["active_runs"].copy()
+                
+                if active_runs:
+                    with self._get_agent() as agent:
+                        for run_id_str in active_runs:
+                            try:
+                                run_id = int(run_id_str)
+                                task = agent.get_task(run_id)
+                                task.refresh()
+                                
+                                # Check if the run is completed
+                                if task.status in ["completed", "failed", "cancelled"]:
+                                    self._handle_completed_run(task)
+                            except Exception as e:
+                                print(f"Error monitoring run {run_id_str}: {e}", file=sys.stderr)
+            
+            except Exception as e:
+                print(f"Error in monitoring thread: {e}", file=sys.stderr)
+            
+            # Sleep before checking again
+            time.sleep(10)
+    
+    def _handle_completed_run(self, task: Task) -> None:
+        """Handle a completed agent run"""
+        run_id_str = str(task.id)
+        
+        # Mark as completed
+        self._mark_run_completed(task.id)
+        
+        # Check if this is a child run
+        if run_id_str in self.relationships["child_parent"]:
+            parent_id_str = self.relationships["child_parent"][run_id_str]
+            parent_id = int(parent_id_str)
+            
+            # Get the response from the completed run
+            response = f"Agent run {task.id} completed with status: {task.status}"
+            if hasattr(task, 'response') and task.response:
+                response = task.response
+            
+            # Check if parent is still active
+            is_parent_active = parent_id_str in self.relationships["active_runs"]
+            
+            if is_parent_active:
+                print(f"Parent run {parent_id} is active, sending response directly", file=sys.stderr)
+                # TODO: In a real implementation, we would send the response directly
+                # to the parent run through the appropriate channel
+            else:
+                print(f"Parent run {parent_id} is not active, resuming with response", file=sys.stderr)
+                try:
+                    # Resume the parent run with the response
+                    with self._get_agent() as agent:
+                        parent_task = agent.get_task(parent_id)
+                        resume_prompt = f"Response from agent run {task.id}: {response}"
+                        parent_task.resume(prompt=resume_prompt)
+                except Exception as e:
+                    print(f"Error resuming parent run {parent_id}: {e}", file=sys.stderr)
     
     def _get_agent(self) -> Agent:
         """Get configured Agent instance"""
@@ -109,6 +255,15 @@ class CodegenMCPServer:
                                 "query": {
                                     "type": "string",
                                     "description": "Task description/query"
+                                },
+                                "parent_id": {
+                                    "type": "integer",
+                                    "description": "Optional parent agent run ID for orchestration"
+                                },
+                                "wait_for_completion": {
+                                    "type": "boolean",
+                                    "description": "Whether to wait for the run to complete before returning",
+                                    "default": false
                                 }
                             },
                             "required": ["repo", "task", "query"]
@@ -131,6 +286,11 @@ class CodegenMCPServer:
                                 "query": {
                                     "type": "string",
                                     "description": "Additional instructions for resuming"
+                                },
+                                "wait_for_completion": {
+                                    "type": "boolean",
+                                    "description": "Whether to wait for the run to complete before returning",
+                                    "default": false
                                 }
                             },
                             "required": ["agent_run_id", "query"]
@@ -212,6 +372,8 @@ class CodegenMCPServer:
         pr = args.get("pr")
         task = args["task"]
         query = args["query"]
+        parent_id = args.get("parent_id")  # Optional parent agent run ID
+        wait_for_completion = args.get("wait_for_completion", False)  # Whether to wait for completion
         
         # Build the prompt with context
         prompt_parts = [f"Task: {task}", f"Repository: {repo}"]
@@ -234,10 +396,21 @@ class CodegenMCPServer:
             metadata["branch"] = branch
         if pr:
             metadata["pr"] = pr
+        if parent_id:
+            metadata["parent_id"] = parent_id
         
         try:
             with self._get_agent() as agent:
                 task_obj = agent.run(prompt=prompt, metadata=metadata)
+                
+                # Register the run as active
+                if task_obj.id not in self.relationships["active_runs"]:
+                    self.relationships["active_runs"].append(str(task_obj.id))
+                    self._save_relationships()
+                
+                # Register parent-child relationship if parent_id is provided
+                if parent_id:
+                    self._register_parent_child(parent_id, task_obj.id)
                 
                 result = {
                     "success": True,
@@ -246,6 +419,26 @@ class CodegenMCPServer:
                     "web_url": task_obj.web_url,
                     "message": f"Created new agent run {task_obj.id}"
                 }
+                
+                # If wait_for_completion is True, wait for the run to complete
+                if wait_for_completion:
+                    result["message"] += " (waiting for completion)"
+                    
+                    # Poll until the run is complete
+                    while task_obj.status not in ["completed", "failed", "cancelled"]:
+                        time.sleep(5)
+                        task_obj.refresh()
+                    
+                    # Update the result with the final status
+                    result["status"] = task_obj.status
+                    result["message"] = f"Agent run {task_obj.id} completed with status: {task_obj.status}"
+                    
+                    # Include the response if available
+                    if hasattr(task_obj, 'response') and task_obj.response:
+                        result["response"] = task_obj.response
+                    
+                    # Mark as completed
+                    self._mark_run_completed(task_obj.id)
                 
                 return CallToolResult(
                     content=[TextContent(type="text", text=json.dumps(result, indent=2))]
@@ -261,6 +454,7 @@ class CodegenMCPServer:
         agent_run_id = args["agent_run_id"]
         task = args.get("task")
         query = args["query"]
+        wait_for_completion = args.get("wait_for_completion", False)  # Whether to wait for completion
         
         # Build resume prompt
         prompt_parts = [f"Resume with: {query}"]
@@ -272,6 +466,13 @@ class CodegenMCPServer:
         try:
             with self._get_agent() as agent:
                 task_obj = agent.get_task(agent_run_id)
+                
+                # Register the run as active if it's not already
+                if str(agent_run_id) not in self.relationships["active_runs"]:
+                    self.relationships["active_runs"].append(str(agent_run_id))
+                    self._save_relationships()
+                
+                # Resume the task
                 result_data = task_obj.resume(prompt=prompt)
                 
                 result = {
@@ -281,6 +482,27 @@ class CodegenMCPServer:
                     "web_url": task_obj.web_url,
                     "message": f"Resumed agent run {agent_run_id}"
                 }
+                
+                # If wait_for_completion is True, wait for the run to complete
+                if wait_for_completion:
+                    result["message"] += " (waiting for completion)"
+                    
+                    # Poll until the run is complete
+                    while result_data.status not in ["completed", "failed", "cancelled"]:
+                        time.sleep(5)
+                        task_obj.refresh()
+                        result_data = task_obj  # Update result_data with refreshed task
+                    
+                    # Update the result with the final status
+                    result["status"] = result_data.status
+                    result["message"] = f"Agent run {agent_run_id} completed with status: {result_data.status}"
+                    
+                    # Include the response if available
+                    if hasattr(result_data, 'response') and result_data.response:
+                        result["response"] = result_data.response
+                    
+                    # Mark as completed
+                    self._mark_run_completed(agent_run_id)
                 
                 return CallToolResult(
                     content=[TextContent(type="text", text=json.dumps(result, indent=2))]

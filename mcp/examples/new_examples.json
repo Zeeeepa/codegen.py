@@ -27,6 +27,25 @@
         "task": "BUG_FIX",
         "query": "Fix the authentication bug in the login form"
       }
+    },
+    {
+      "title": "With parent orchestration",
+      "arguments": {
+        "repo": "Zeeeepa/codegen.py",
+        "task": "ANALYZE",
+        "query": "Analyze the authentication module",
+        "parent_id": 12345
+      }
+    },
+    {
+      "title": "Wait for completion",
+      "arguments": {
+        "repo": "Zeeeepa/codegen.py",
+        "task": "CREATE_PLAN",
+        "query": "Create a quick plan for the project",
+        "wait_for_completion": true
+      }
     }
   ]
 }
+

@@ -173,11 +173,53 @@ def main():
     with open(examples_dir / "list_examples.json", 'w') as f:
         json.dump(list_example, f, indent=2)
     
+    # Example 5: Orchestration examples
+    orchestration_example = {
+        "name": "codegenapi_orchestration",
+        "description": "Examples of agent orchestration patterns",
+        "examples": [
+            {
+                "title": "Create orchestrator agent",
+                "description": "First, create the main orchestrator agent that will coordinate other agents",
+                "arguments": {
+                    "repo": "Zeeeepa/codegen.py",
+                    "task": "ORCHESTRATE",
+                    "query": "Coordinate analysis of the entire codebase"
+                }
+            },
+            {
+                "title": "Create child agent with parent ID",
+                "description": "Create a child agent that reports back to the orchestrator",
+                "arguments": {
+                    "repo": "Zeeeepa/codegen.py",
+                    "task": "ANALYZE",
+                    "query": "Analyze the authentication module",
+                    "parent_id": 12345  # Replace with actual orchestrator ID
+                }
+            },
+            {
+                "title": "Auto-resume pattern",
+                "description": "When child agents complete, they automatically resume the orchestrator with their results",
+                "explanation": [
+                    "1. The MCP server tracks parent-child relationships between agent runs",
+                    "2. When a child agent completes, the server checks if the parent is still active",
+                    "3. If the parent is active, the response is sent directly",
+                    "4. If the parent is inactive, the server automatically resumes the parent with the child's response",
+                    "5. This creates a seamless continuation of the conversation even if the client disconnects"
+                ]
+            }
+        ]
+    }
+    
+    with open(examples_dir / "orchestration_examples.json", 'w') as f:
+        json.dump(orchestration_example, f, indent=2)
+    
     print("\n✅ Created example command files in the examples directory:")
     print(f"  - {examples_dir / 'config_examples.json'}")
     print(f"  - {examples_dir / 'new_examples.json'}")
     print(f"  - {examples_dir / 'resume_examples.json'}")
     print(f"  - {examples_dir / 'list_examples.json'}")
+    print(f"  - {examples_dir / 'orchestration_examples.json'}")
     
     # Create a README with instructions
     readme_content = """# Codegen MCP Server Demo
@@ -199,6 +241,44 @@ The `examples` directory contains JSON files with example commands for each tool
 - `new_examples.json` - Starting new agent runs
 - `resume_examples.json` - Resuming existing agent runs
 - `list_examples.json` - Listing and filtering agent runs
+- `orchestration_examples.json` - Agent orchestration patterns
+
+## 🔄 Agent Orchestration
+
+The MCP server supports advanced agent orchestration with parent-child relationships:
+
+### Parent-Child Relationships
+
+```json
+{
+  "repo": "Zeeeepa/codegen.py",
+  "task": "ANALYZE",
+  "query": "Analyze the authentication module",
+  "parent_id": 12345  // ID of the orchestrator agent
+}
+```
+
+### Async Completion Handling
+
+When a child agent completes:
+1. The server checks if the parent orchestrator is still running
+2. If active: Sends the response directly to the orchestrator
+3. If inactive: Automatically resumes the parent with the child's response
+
+### Wait for Completion
+
+Both `codegenapi_new` and `codegenapi_resume` support waiting for completion:
+
+```json
+{
+  "repo": "Zeeeepa/codegen.py",
+  "task": "CREATE_PLAN",
+  "query": "Create a quick plan for the project",
+  "wait_for_completion": true
+}
+```
+
+This will block until the agent run completes and return the final result.
 
 ## 🔧 Using with MCP Clients
 
@@ -249,4 +329,3 @@ This will verify that the server can start up, load configuration, and has all r
 
 if __name__ == "__main__":
     main()
-

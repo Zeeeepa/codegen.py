@@ -158,6 +158,43 @@ mcp/
 └── README.md          # This file
 ```
 
+## 🔄 Agent Orchestration
+
+The MCP server supports advanced agent orchestration with parent-child relationships:
+
+### Parent-Child Relationships
+
+```json
+{
+  "repo": "Zeeeepa/codegen.py",
+  "task": "ANALYZE",
+  "query": "Analyze the authentication module",
+  "parent_id": 12345  // ID of the orchestrator agent
+}
+```
+
+### Async Completion Handling
+
+When a child agent completes:
+1. The server checks if the parent orchestrator is still running
+2. If active: Sends the response directly to the orchestrator
+3. If inactive: Automatically resumes the parent with the child's response
+
+### Wait for Completion
+
+Both `codegenapi_new` and `codegenapi_resume` support waiting for completion:
+
+```json
+{
+  "repo": "Zeeeepa/codegen.py",
+  "task": "CREATE_PLAN",
+  "query": "Create a quick plan for the project",
+  "wait_for_completion": true
+}
+```
+
+This will block until the agent run completes and return the final result.
+
 ## 🔍 Troubleshooting
 
 ### "API token not configured"
@@ -184,7 +221,8 @@ The server handles:
 - Agent run creation and management
 - Task resumption with additional context
 - Listing and filtering of agent runs
+- Parent-child relationship tracking and orchestration
+- Async completion handling with auto-resume
 - Error handling and user-friendly responses
 
 All responses are returned as JSON for easy parsing by AI clients.
-

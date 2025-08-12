@@ -16,6 +16,15 @@
         "task": "ANALYZE",
         "query": "Focus on security vulnerabilities in the authentication flow"
       }
+    },
+    {
+      "title": "Resume and wait for completion",
+      "arguments": {
+        "agent_run_id": 12345,
+        "query": "Complete the analysis with performance considerations",
+        "wait_for_completion": true
+      }
     }
   ]
 }
+
