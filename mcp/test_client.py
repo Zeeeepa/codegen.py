@@ -3,13 +3,9 @@
 Test client for MCP server
 """
 
-import os
 import sys
-import json
-import time
 import logging
 import requests
-from typing import Dict, Any, Optional
 
 # Configure logging
 logging.basicConfig(

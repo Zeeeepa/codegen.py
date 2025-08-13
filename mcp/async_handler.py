@@ -4,15 +4,24 @@ Async handler for managing long-running agent operations
 
 import time
 import logging
-import threading
-from typing import Dict, Any, Optional, Callable
+from threading import Thread
 from queue import Queue, Empty
+from typing import Dict, Any, Optional, Callable, TypedDict, cast
 
 # Import from the same directory
 from codegen_client import CodegenClient
 from state_manager import StateManager
 
 logger = logging.getLogger(__name__)
+
+class TaskDict(TypedDict, total=False):
+    """Type definition for task dictionary"""
+    type: str
+    prompt: str
+    orchestrator_id: Optional[str]
+    metadata: Dict[str, Any]
+    callback: Optional[Callable[..., Any]]
+    agent_run_id: str
 
 class AsyncHandler:
     """
@@ -24,8 +33,8 @@ class AsyncHandler:
         self.state_manager = state_manager
         self.poll_interval = 5.0  # seconds
         self.running = False
-        self.worker_thread = None
-        self.task_queue = Queue()
+        self.worker_thread: Optional[Thread] = None
+        self.task_queue: Queue[TaskDict] = Queue()
     
     def start(self) -> None:
         """Start the async handler"""
@@ -33,7 +42,7 @@ class AsyncHandler:
             return
         
         self.running = True
-        self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+        self.worker_thread = Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
         logger.info("Async handler started")
     
@@ -64,7 +73,7 @@ class AsyncHandler:
             except Exception as e:
                 logger.error(f"Error in async worker loop: {e}")
     
-    def _process_task(self, task: Dict[str, Any]) -> None:
+    def _process_task(self, task: TaskDict) -> None:
         """Process a queued task"""
         task_type = task.get("type")
         
@@ -75,10 +84,10 @@ class AsyncHandler:
         else:
             logger.warning(f"Unknown task type: {task_type}")
     
-    def _handle_create_run(self, task: Dict[str, Any]) -> None:
+    def _handle_create_run(self, task: TaskDict) -> None:
         """Handle creating a new agent run"""
         try:
-            prompt = task.get("prompt")
+            prompt = task.get("prompt", "")
             orchestrator_id = task.get("orchestrator_id")
             metadata = task.get("metadata", {})
             
@@ -111,8 +120,11 @@ class AsyncHandler:
             logger.info(f"Created agent run {run_id} with orchestrator {orchestrator_id}")
             
             # Store the callback if provided
-            if "callback" in task:
-                metadata["callback"] = task["callback"]
+            if "callback" in task and task.get("callback") is not None:
+                callback_metadata = metadata.copy()
+                # We can't store the callback function directly in metadata
+                # Just note that a callback exists
+                callback_metadata["has_callback"] = True
                 self.state_manager.update_run_status(
                     run_id=str(run_id),
                     status="running",
@@ -122,11 +134,11 @@ class AsyncHandler:
         except Exception as e:
             logger.error(f"Error creating agent run: {e}")
     
-    def _handle_resume_run(self, task: Dict[str, Any]) -> None:
+    def _handle_resume_run(self, task: TaskDict) -> None:
         """Handle resuming an agent run"""
         try:
-            agent_run_id = task.get("agent_run_id")
-            prompt = task.get("prompt")
+            agent_run_id = task.get("agent_run_id", "")
+            prompt = task.get("prompt", "")
             
             # Resume the agent run
             self.client.resume_agent_run(
@@ -171,7 +183,7 @@ class AsyncHandler:
             # Update the run status
             self.state_manager.update_run_status(
                 run_id=run_id,
-                status=result.get("status"),
+                status=result.get("status", ""),
                 result=result.get("result")
             )
             
@@ -224,10 +236,10 @@ class AsyncHandler:
         prompt: str, 
         orchestrator_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable[..., Any]] = None
     ) -> None:
         """Queue a task to create a new agent run"""
-        task = {
+        task: TaskDict = {
             "type": "create_run",
             "prompt": prompt,
             "orchestrator_id": orchestrator_id,
@@ -245,7 +257,7 @@ class AsyncHandler:
         prompt: str
     ) -> None:
         """Queue a task to resume an agent run"""
-        task = {
+        task: TaskDict = {
             "type": "resume_run",
             "agent_run_id": agent_run_id,
             "prompt": prompt
@@ -300,11 +312,11 @@ class AsyncHandler:
                 # Update the run status
                 self.state_manager.update_run_status(
                     run_id=str(run_id),
-                    status=result.get("status"),
+                    status=result.get("status", ""),
                     result=result.get("result")
                 )
             
-            return result
+            return cast(Dict[str, Any], result)
         
         except Exception as e:
             logger.error(f"Error creating agent run: {e}")

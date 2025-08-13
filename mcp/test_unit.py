@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import components
 from config import Config
-from codegen_client import CodegenClient, CodegenAPIError
+from codegen_client import CodegenClient
 from state_manager import StateManager
 
 class TestConfig(unittest.TestCase):

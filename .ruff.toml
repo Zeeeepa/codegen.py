@@ -1,0 +1,14 @@
+line-length = 100
+target-version = "py39"
+
+[lint]
+select = ["E", "F", "B", "I"]
+ignore = ["E402"]  # Ignore module level import not at top of file
+
+[lint.per-file-ignores]
+"mcp/server.py" = ["F401"]  # Ignore unused import in server.py
+"mcp/test_*.py" = ["E402"]  # Ignore import order in test files
+
+[lint.isort]
+known-first-party = ["mcp"]
+
