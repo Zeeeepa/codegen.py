@@ -2,135 +2,403 @@
 """
 MCP Server for Codegen API
 
-This module provides a simple HTTP server that implements the Model Context Protocol (MCP)
-for the Codegen API.
+This module provides a direct Python module that implements the Model Context Protocol (MCP)
+for the Codegen API. It directly executes API calls when invoked by MCP clients.
 """
 
 import os
 import sys
 import json
-import argparse
 import logging
-from typing import Dict, Any, Optional
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from typing import Dict, Any, Optional, List, Callable
 
-from .handlers import (
-    handle_new_command,
-    handle_resume_command,
-    handle_config_command,
-    handle_list_command,
-    handle_task_status_command,
-    handle_logs_command,
-)
 from .config import get_api_token, get_org_id, get_base_url
+from codegen_api_client import Agent, CodegenClient, ClientConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class MCPRequestHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for MCP server."""
+def handle_command(command: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handle MCP command directly.
     
-    def _set_headers(self, content_type="application/json"):
-        """Set response headers."""
-        self.send_response(200)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
+    This is the main entry point for MCP clients to execute commands.
     
-    def do_OPTIONS(self):
-        """Handle OPTIONS requests."""
-        self._set_headers()
-    
-    def do_POST(self):
-        """Handle POST requests."""
-        content_length = int(self.headers.get("Content-Length", 0))
-        if content_length == 0:
-            self._set_headers()
-            self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
-            return
+    Args:
+        command: The command to execute
+        args: The command arguments
         
+    Returns:
+        The command response
+    """
+    logger.info(f"Handling command: {command}")
+    
+    # Get API token and org ID
+    api_token = get_api_token()
+    org_id = get_org_id()
+    base_url = get_base_url()
+    
+    if not api_token and command != "config":
+        return {
+            "status": "error",
+            "error": "API token not configured",
+            "details": "Set the CODEGEN_API_TOKEN environment variable or use the 'config' command."
+        }
+    
+    if not org_id and command != "config":
+        return {
+            "status": "error",
+            "error": "Organization ID not configured",
+            "details": "Set the CODEGEN_ORG_ID environment variable or use the 'config' command."
+        }
+    
+    # Handle commands
+    if command == "new":
+        return handle_new_command(args, api_token, org_id, base_url)
+    
+    elif command == "resume":
+        return handle_resume_command(args, api_token, org_id, base_url)
+    
+    elif command == "config":
+        return handle_config_command(args)
+    
+    elif command == "list":
+        return handle_list_command(args, api_token, org_id, base_url)
+    
+    elif command == "logs":
+        return handle_logs_command(args, api_token, org_id, base_url)
+    
+    else:
+        return {
+            "status": "error",
+            "error": "Unknown command",
+            "details": f"Command '{command}' is not supported."
+        }
+
+def handle_new_command(args: Dict[str, Any], api_token: str, org_id: str, base_url: str) -> Dict[str, Any]:
+    """Handle the 'new' command."""
+    try:
+        # Check required arguments
+        if "query" not in args:
+            return {
+                "status": "error",
+                "error": "Missing required argument: query",
+                "details": "The 'query' argument is required for the 'new' command."
+            }
+        
+        # Initialize agent
+        agent = Agent(
+            org_id=org_id,
+            token=api_token,
+            base_url=base_url
+        )
+        
+        # Build metadata
+        metadata = {}
+        
+        if "repo" in args:
+            metadata["repo"] = args["repo"]
+        
+        if "branch" in args:
+            metadata["branch"] = args["branch"]
+        
+        if "pr" in args:
+            metadata["pr"] = args["pr"]
+        
+        if "task" in args:
+            metadata["task_type"] = args["task"]
+        
+        # Run agent
+        task = agent.run(
+            prompt=args["query"],
+            metadata=metadata
+        )
+        
+        # Return response
+        return {
+            "status": "success",
+            "agent_run_id": task.id,
+            "state": task.status,
+            "web_url": task.web_url,
+            "metadata": metadata
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error handling 'new' command: {e}")
+        
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+def handle_resume_command(args: Dict[str, Any], api_token: str, org_id: str, base_url: str) -> Dict[str, Any]:
+    """Handle the 'resume' command."""
+    try:
+        # Check required arguments
+        if "agent_run_id" not in args:
+            return {
+                "status": "error",
+                "error": "Missing required argument: agent_run_id",
+                "details": "The 'agent_run_id' argument is required for the 'resume' command."
+            }
+        
+        if "query" not in args:
+            return {
+                "status": "error",
+                "error": "Missing required argument: query",
+                "details": "The 'query' argument is required for the 'resume' command."
+            }
+        
+        # Initialize agent
+        agent = Agent(
+            org_id=org_id,
+            token=api_token,
+            base_url=base_url
+        )
+        
+        # Get task
+        agent_run_id = int(args["agent_run_id"])
+        task = agent.get_task(agent_run_id)
+        
+        # Check if task is in a resumable state
+        if task.status != "COMPLETE":
+            return {
+                "status": "error",
+                "error": f"Agent run {agent_run_id} is not in a resumable state",
+                "details": f"Current status: {task.status}. Only agent runs with status 'COMPLETE' can be resumed."
+            }
+        
+        # Build metadata
+        metadata = {}
+        
+        if "task" in args:
+            metadata["task_type"] = args["task"]
+        
+        # Resume task
         try:
-            # Parse request body
-            request_body = self.rfile.read(content_length).decode("utf-8")
-            request_data = json.loads(request_body)
+            resumed_task = task.resume(args["query"])
             
-            # Extract command and arguments
-            command = request_data.get("command")
-            args = request_data.get("args", {})
-            
-            # Handle command
-            response = self._handle_command(command, args)
-            
-            # Send response
-            self._set_headers()
-            self.wfile.write(json.dumps(response).encode())
-        
-        except json.JSONDecodeError:
-            self._set_headers()
-            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            # Return response
+            return {
+                "status": "success",
+                "agent_run_id": resumed_task.id,
+                "state": resumed_task.status,
+                "web_url": resumed_task.web_url,
+                "metadata": metadata
+            }
         
         except Exception as e:
-            logger.exception(f"Error handling request: {e}")
-            self._set_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            logger.error(f"Error resuming task: {e}")
+            
+            return {
+                "status": "error",
+                "error": f"Error resuming agent run: {e}",
+                "details": "The agent run may not be in a resumable state."
+            }
     
-    def _handle_command(self, command: str, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle MCP command."""
-        logger.info(f"Handling command: {command}")
+    except Exception as e:
+        logger.exception(f"Error handling 'resume' command: {e}")
         
-        if command == "new":
-            return handle_new_command(args)
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+def handle_config_command(args: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle the 'config' command."""
+    try:
+        # Check required arguments
+        if "action" not in args:
+            return {
+                "status": "error",
+                "error": "Missing required argument: action",
+                "details": "The 'action' argument is required for the 'config' command."
+            }
         
-        elif command == "resume":
-            return handle_resume_command(args)
+        if "key" not in args:
+            return {
+                "status": "error",
+                "error": "Missing required argument: key",
+                "details": "The 'key' argument is required for the 'config' command."
+            }
         
-        elif command == "config":
-            return handle_config_command(args)
+        # Handle 'set' action
+        if args["action"] == "set":
+            if "value" not in args:
+                return {
+                    "status": "error",
+                    "error": "Missing required argument: value",
+                    "details": "The 'value' argument is required for the 'config set' command."
+                }
+            
+            # Set environment variable
+            os.environ[f"CODEGEN_{args['key'].upper()}"] = args["value"]
+            
+            return {
+                "status": "success",
+                "message": f"Configuration value '{args['key']}' set successfully"
+            }
         
-        elif command == "list":
-            return handle_list_command(args)
-        
-        elif command == "task_status":
-            return handle_task_status_command(args)
-        
-        elif command == "logs":
-            return handle_logs_command(args)
+        # Handle 'get' action
+        elif args["action"] == "get":
+            # Get environment variable
+            value = os.environ.get(f"CODEGEN_{args['key'].upper()}")
+            
+            if value:
+                # Mask token for security
+                if args["key"] == "api_token":
+                    value = value[:4] + "..." + value[-4:]
+                
+                return {
+                    "status": "success",
+                    "key": args["key"],
+                    "value": value
+                }
+            else:
+                return {
+                    "status": "error",
+                    "error": f"Configuration value '{args['key']}' not found",
+                    "details": f"Set the CODEGEN_{args['key'].upper()} environment variable or use the 'config set' command."
+                }
         
         else:
             return {
                 "status": "error",
-                "error": "Unknown command",
-                "details": f"Command '{command}' is not supported."
+                "error": f"Unknown action: {args['action']}",
+                "details": "The 'action' argument must be 'set' or 'get'."
             }
+    
+    except Exception as e:
+        logger.exception(f"Error handling 'config' command: {e}")
+        
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 
-def run_server(host: str, port: int):
-    """Run the MCP server."""
-    server_address = (host, port)
-    httpd = HTTPServer(server_address, MCPRequestHandler)
-    
-    logger.info(f"Starting MCP server on {host}:{port}")
-    logger.info(f"API Token: {get_api_token()[:4]}...{get_api_token()[-4:] if get_api_token() else ''}")
-    logger.info(f"Org ID: {get_org_id()}")
-    logger.info(f"Base URL: {get_base_url()}")
-    
+def handle_list_command(args: Dict[str, Any], api_token: str, org_id: str, base_url: str) -> Dict[str, Any]:
+    """Handle the 'list' command."""
     try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        logger.info("Stopping MCP server")
-        httpd.server_close()
-
-def main():
-    """Main function."""
-    parser = argparse.ArgumentParser(description="Codegen MCP Server")
-    parser.add_argument("--host", default="localhost", help="Server host (default: localhost)")
-    parser.add_argument("--port", type=int, default=8080, help="Server port (default: 8080)")
-    args = parser.parse_args()
+        # Initialize client
+        client = CodegenClient(
+            ClientConfig(
+                api_token=api_token,
+                org_id=org_id,
+                base_url=base_url
+            )
+        )
+        
+        # Get agent runs
+        limit = args.get("limit", 20)
+        runs = client.list_agent_runs(limit=limit)
+        
+        # Filter by status if provided
+        if "status" in args:
+            filtered_runs = [run for run in runs.items if run.status == args["status"]]
+        else:
+            filtered_runs = runs.items
+        
+        # Filter by repository if provided
+        if "repo" in args:
+            filtered_runs = [
+                run for run in filtered_runs 
+                if run.metadata and run.metadata.get("repo") == args["repo"]
+            ]
+        
+        # Convert to response format
+        items = []
+        for run in filtered_runs:
+            item = {
+                "id": run.id,
+                "status": run.status,
+                "created_at": run.created_at,
+                "web_url": run.web_url,
+                "metadata": run.metadata
+            }
+            
+            if run.result:
+                item["result"] = run.result
+            
+            items.append(item)
+        
+        # Return response
+        return {
+            "status": "success",
+            "items": items,
+            "total": len(items),
+            "page": 1,
+            "size": limit,
+            "pages": 1
+        }
     
-    run_server(args.host, args.port)
+    except Exception as e:
+        logger.exception(f"Error handling 'list' command: {e}")
+        
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 
-if __name__ == "__main__":
-    main()
+def handle_logs_command(args: Dict[str, Any], api_token: str, org_id: str, base_url: str) -> Dict[str, Any]:
+    """Handle the 'logs' command."""
+    try:
+        # Check required arguments
+        if "agent_run_id" not in args:
+            return {
+                "status": "error",
+                "error": "Missing required argument: agent_run_id",
+                "details": "The 'agent_run_id' argument is required for the 'logs' command."
+            }
+        
+        # Initialize client
+        client = CodegenClient(
+            ClientConfig(
+                api_token=api_token,
+                org_id=org_id,
+                base_url=base_url
+            )
+        )
+        
+        # Get agent run logs
+        agent_run_id = int(args["agent_run_id"])
+        skip = args.get("skip", 0)
+        limit = args.get("limit", 100)
+        
+        logs = client.get_agent_run_logs(
+            agent_run_id=agent_run_id,
+            skip=skip,
+            limit=limit
+        )
+        
+        # Return response
+        return {
+            "status": "success",
+            "logs": logs.logs,
+            "total_logs": logs.total,
+            "page": 1,
+            "size": limit,
+            "pages": 1
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error handling 'logs' command: {e}")
+        
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+# Main entry point for MCP clients
+def main(command: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Main entry point for MCP clients.
+    
+    Args:
+        command: The command to execute
+        args: The command arguments
+        
+    Returns:
+        The command response
+    """
+    return handle_command(command, args)
