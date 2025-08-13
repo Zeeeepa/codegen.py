@@ -1,6 +1,6 @@
-# Codegen MCP Server
+# Codegen API MCP Server
 
-A Model Context Protocol (MCP) server for the Codegen API that enables AI assistants to create and manage agent runs.
+This repository contains a Model Context Protocol (MCP) server for the Codegen API, allowing AI assistants to interact with the Codegen API.
 
 ## Installation
 
@@ -9,57 +9,99 @@ A Model Context Protocol (MCP) server for the Codegen API that enables AI assist
 git clone https://github.com/Zeeeepa/codegen.py.git
 cd codegen.py
 
-# Install dependencies
+# Install the package
 pip install -e .
 ```
 
 ## Configuration
 
-Before using the MCP server, you need to configure your API token and organization ID:
+Set your Codegen API token and organization ID:
 
 ```bash
-# Set API token
+# Using environment variables
 export CODEGEN_API_TOKEN=your_api_token
-
-# Set organization ID
 export CODEGEN_ORG_ID=your_org_id
+
+# Or using the CLI
+codegenapi config set api-token your_api_token
+codegenapi config set org_id your_org_id
 ```
 
-Alternatively, you can use the `config` command to set these values:
+## Command-Line Interface
+
+The package includes a command-line interface for interacting with the Codegen API:
+
+### Start a new agent run
 
 ```bash
-# Using the MCP server
-curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d '{
-  "command": "config",
-  "args": {
-    "action": "set",
-    "key": "api_token",
-    "value": "your_api_token"
-  }
-}'
-
-curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d '{
-  "command": "config",
-  "args": {
-    "action": "set",
-    "key": "org_id",
-    "value": "your_org_id"
-  }
-}'
+codegenapi new --repo Zeeeepa/codegen.py --task CREATE_PLAN --query "Create a comprehensive plan to properly structure codebase"
 ```
 
-## Running the MCP Server
+Options:
+- `--repo`: Repository name (e.g., 'Zeeeepa/codegen.py')
+- `--branch`: Branch name (optional)
+- `--pr`: PR number (optional)
+- `--task`: Task type (optional)
+- `--query`: Task description (required)
+
+### Resume a completed agent run
 
 ```bash
-# Start the MCP server
-python -m mcp.server --host localhost --port 8080
+codegenapi resume --agent_run_id 11745 --task ANALYZE --query "Analyze frontend of the codebase"
 ```
 
-## MCP Commands
+Options:
+- `--agent_run_id`: Agent run ID to resume (required)
+- `--task`: Task type (optional)
+- `--query`: Additional instructions (required)
+
+**Note**: Only agent runs with status "COMPLETE" can be resumed. If the agent run is still "ACTIVE", this will fail.
+
+### List agent runs
+
+```bash
+# List all agent runs
+codegenapi list
+
+# Filter by status
+codegenapi list --status running --limit 20
+
+# Filter by repository
+codegenapi list --repo Zeeeepa/codegen.py
+```
+
+Options:
+- `--status`: Filter by status (optional)
+- `--limit`: Maximum number of runs to return (default: 20)
+- `--repo`: Filter by repository (optional)
+
+### Get logs for an agent run
+
+```bash
+codegenapi logs --agent_run_id 11745
+```
+
+Options:
+- `--agent_run_id`: Agent run ID to get logs for (required)
+- `--skip`: Number of logs to skip (default: 0)
+- `--limit`: Maximum number of logs to return (default: 100)
+
+## MCP Server
+
+The MCP server provides a Model Context Protocol (MCP) interface for the Codegen API, allowing AI assistants to interact with the API.
+
+### Starting the Server
+
+```bash
+# Start the server
+codegen-mcp --host localhost --port 8080
+```
+
+### MCP Commands
 
 The MCP server supports the following commands:
 
-### 1. Start a New Agent Run
+#### `new` - Start a new agent run
 
 ```json
 {
@@ -69,114 +111,9 @@ The MCP server supports the following commands:
     "branch": "codegen-bot/code-quality-analysis-plan-1754927688",
     "pr": 9,
     "task": "CREATE_PLAN",
-    "query": "Create a comprehensive plan to properly structure codebase",
-    "orchestrator_run_id": 12345
-  }
-}
-```
-
-Parameters:
-- `repo`: Repository name (required)
-- `branch`: Branch name (optional)
-- `pr`: PR number (optional)
-- `task`: Task type (optional)
-- `query`: Task description (required)
-- `orchestrator_run_id`: ID of the orchestrator agent run (optional)
-
-### 2. Resume an Agent Run
-
-```json
-{
-  "command": "resume",
-  "args": {
-    "agent_run_id": 11745,
-    "task": "ANALYZE",
-    "query": "Analyze frontend of the codebase",
-    "orchestrator_run_id": 12345
-  }
-}
-```
-
-Parameters:
-- `agent_run_id`: Agent run ID to resume (required)
-- `task`: Task type (optional)
-- `query`: Additional instructions (required)
-- `orchestrator_run_id`: ID of the orchestrator agent run (optional)
-
-### 3. Configure API Token and Organization ID
-
-```json
-{
-  "command": "config",
-  "args": {
-    "action": "set",
-    "key": "api-token",
-    "value": "YOUR_TOKEN"
-  }
-}
-```
-
-```json
-{
-  "command": "config",
-  "args": {
-    "action": "set",
-    "key": "org_id",
-    "value": "YOUR_ORG_ID"
-  }
-}
-```
-
-Parameters:
-- `action`: "set" or "get" (required)
-- `key`: Configuration key (required)
-- `value`: Configuration value (required for "set" action)
-
-### 4. List Agent Runs
-
-```json
-{
-  "command": "list",
-  "args": {
-    "status": "running",
-    "limit": 20,
-    "repo": "user/repo"
-  }
-}
-```
-
-Parameters:
-- `status`: Filter by status (optional)
-- `limit`: Maximum number of runs to return (optional, default: 20)
-- `repo`: Filter by repository (optional)
-
-### 5. Check Task Status
-
-```json
-{
-  "command": "task_status",
-  "args": {
-    "task_id": "task_12345"
-  }
-}
-```
-
-Parameters:
-- `task_id`: Task ID to check (required)
-
-## Example Usage
-
-### Start a New Agent Run
-
-```bash
-curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d '{
-  "command": "new",
-  "args": {
-    "repo": "Zeeeepa/codegen.py",
-    "task": "CREATE_PLAN",
     "query": "Create a comprehensive plan to properly structure codebase"
   }
-}'
+}
 ```
 
 Response:
@@ -185,21 +122,55 @@ Response:
   "status": "success",
   "task_id": "550e8400-e29b-41d4-a716-446655440000",
   "agent_run_id": 12345,
-  "state": "running",
+  "state": "active",
   "web_url": "https://codegen.com/runs/12345",
-  "message": "Agent run started successfully."
+  "metadata": {
+    "command": "new",
+    "repo": "Zeeeepa/codegen.py",
+    "task_type": "CREATE_PLAN"
+  }
 }
 ```
 
-### Check Task Status
+#### `resume` - Resume a completed agent run
 
-```bash
-curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d '{
+```json
+{
+  "command": "resume",
+  "args": {
+    "agent_run_id": 11745,
+    "task": "ANALYZE",
+    "query": "Analyze frontend of the codebase"
+  }
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "agent_run_id": 11745,
+  "state": "active",
+  "web_url": "https://codegen.com/runs/11745",
+  "metadata": {
+    "command": "resume",
+    "task_type": "ANALYZE"
+  }
+}
+```
+
+**Note**: Only agent runs with status "COMPLETE" can be resumed. If the agent run is still "ACTIVE", this will fail.
+
+#### `task_status` - Check the status of a task
+
+```json
+{
   "command": "task_status",
   "args": {
     "task_id": "550e8400-e29b-41d4-a716-446655440000"
   }
-}'
+}
 ```
 
 Response:
@@ -219,6 +190,87 @@ Response:
     "repo": "Zeeeepa/codegen.py",
     "task_type": "CREATE_PLAN"
   }
+}
+```
+
+#### `list` - List agent runs
+
+```json
+{
+  "command": "list",
+  "args": {
+    "status": "running",
+    "limit": 20,
+    "repo": "Zeeeepa/codegen.py"
+  }
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "items": [
+    {
+      "id": 12345,
+      "status": "ACTIVE",
+      "created_at": "2025-08-12T12:34:56.789Z",
+      "web_url": "https://codegen.com/runs/12345",
+      "metadata": {
+        "repo": "Zeeeepa/codegen.py",
+        "task_type": "CREATE_PLAN"
+      }
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "size": 20,
+  "pages": 1
+}
+```
+
+#### `logs` - Get logs for an agent run
+
+```json
+{
+  "command": "logs",
+  "args": {
+    "agent_run_id": 12345,
+    "skip": 0,
+    "limit": 100
+  }
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "logs": [
+    {
+      "agent_run_id": 12345,
+      "created_at": "2025-08-12T12:34:56.789Z",
+      "tool_name": "ripgrep_search",
+      "message_type": "ACTION",
+      "thought": "I need to search for the user's function in the codebase",
+      "observation": {
+        "status": "success",
+        "results": ["Found 3 matches..."]
+      },
+      "tool_input": {
+        "query": "function getUserData",
+        "file_extensions": [".js", ".ts"]
+      },
+      "tool_output": {
+        "matches": 3,
+        "files": ["src/user.js", "src/api.ts"]
+      }
+    }
+  ],
+  "total_logs": 25,
+  "page": 1,
+  "size": 100,
+  "pages": 1
 }
 ```
 
@@ -248,137 +300,29 @@ The MCP server supports orchestrator tracking, which allows you to create hierar
 
 ### How It Works
 
-1. When creating a new agent run, you can specify an `orchestrator_run_id` parameter to indicate that this run is a child of another agent run.
-2. When a child agent run completes, the MCP server will:
-   - If the orchestrator is still running: Send the result directly to the orchestrator (future enhancement)
-   - If the orchestrator is not running: Automatically resume the orchestrator with the result
-
-### Example Usage
-
-```json
-{
-  "command": "new",
-  "args": {
-    "repo": "Zeeeepa/codegen.py",
-    "task": "CREATE_PLAN",
-    "query": "Create a comprehensive plan to properly structure codebase",
-    "orchestrator_run_id": 12345
-  }
-}
+1. Create an orchestrator agent run:
+```bash
+codegenapi new --task ORCHESTRATOR --query "Orchestrate a complex workflow"
 ```
 
-This creates a new agent run that is a child of agent run 12345. When this run completes, the result will be automatically sent to the orchestrator.
-
-## Codegen API Client
-
-The package includes a comprehensive Codegen API client that implements all 9 endpoints of the Codegen API:
-
-### Users Endpoints
-
-1. **Get Users** - `GET /v1/organizations/{org_id}/users`
-   - List all users in an organization
-   - Supports pagination with skip and limit parameters
-
-2. **Get User** - `GET /v1/organizations/{org_id}/user/{user_id}`
-   - Get details for a specific user in an organization
-
-3. **Get Current User Info** - `GET /v1/organizations/{org_id}/user/current`
-   - Get information about the current authenticated user
-
-### Agents Endpoints
-
-4. **Create Agent Run** - `POST /v1/organizations/{org_id}/agent/run`
-   - Create a new agent run with a prompt and optional metadata
-   - Returns the agent run details including ID and web URL
-
-5. **Get Agent Run** - `GET /v1/organizations/{org_id}/agent/run/{agent_run_id}`
-   - Get details for a specific agent run
-   - Includes status, result, and other metadata
-
-6. **List Agent Runs** - `GET /v1/organizations/{org_id}/agent/runs`
-   - List agent runs for an organization
-   - Supports filtering by user ID and source type
-   - Supports pagination with skip and limit parameters
-
-7. **Resume Agent Run** - `POST /v1/organizations/{org_id}/agent/run/{agent_run_id}/resume`
-   - Resume a paused agent run with additional instructions
-
-### Organizations Endpoints
-
-8. **Get Organizations** - `GET /v1/organizations`
-   - List all organizations the user has access to
-   - Supports pagination with skip and limit parameters
-
-### Agents-Alpha Endpoints
-
-9. **Get Agent Run Logs** - `GET /v1/organizations/{org_id}/agent/run/{agent_run_id}/logs`
-   - Get logs for a specific agent run
-   - Includes tool calls, thoughts, and observations
-   - Supports pagination with skip and limit parameters
-
-### Using the API Client
-
-```python
-from codegen_api_client import CodegenClient, ClientConfig
-
-# Initialize client
-config = ClientConfig(
-    api_token="your_api_token",
-    org_id="your_org_id",
-    base_url="https://api.codegen.com/v1"
-)
-client = CodegenClient(config)
-
-# Create a new agent run
-agent_run = client.create_agent_run(
-    prompt="Create a comprehensive plan to properly structure codebase",
-    metadata={"repo": "Zeeeepa/codegen.py", "task_type": "CREATE_PLAN"}
-)
-
-# Get agent run details
-agent_run = client.get_agent_run(agent_run.id)
-
-# List agent runs
-runs = client.list_agent_runs(limit=10)
-
-# Get users
-users = client.get_users(limit=10)
-
-# Get organizations
-orgs = client.get_organizations(limit=10)
-
-# Get agent run logs
-logs = client.get_agent_run_logs(agent_run.id, limit=10)
+2. Create child agent runs with a reference to the orchestrator:
+```bash
+codegenapi new --task CHILD --query "Perform a specific task" --metadata '{"orchestrator_run_id": 12345}'
 ```
 
-## Testing
+3. The orchestrator can track the status of its child runs and coordinate their execution.
 
-The MCP server can be tested using the provided test scripts:
+## Validation
 
-### Basic Testing
+The package includes validation scripts for testing the API endpoints and MCP server:
 
 ```bash
+# Test the API client
+python validate_commands.py
+
+# Test the MCP server
 python test_mcp_server.py
 ```
-
-This script tests all the commands and functionality of the MCP server, including:
-- Configuration management
-- Creating new agent runs
-- Resuming existing agent runs
-- Tracking task status
-- Orchestrator tracking
-
-### Testing with Real Credentials
-
-```bash
-python real_test.py
-```
-
-This script tests the MCP server with the provided real credentials:
-- CODEGEN_ORG_ID=323
-- CODEGEN_API_TOKEN=sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99
-
-The real test script demonstrates the actual functionality of the MCP server with the Codegen API, including orchestrator tracking and automatic notification between agents.
 
 ## License
 

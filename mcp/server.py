@@ -21,6 +21,7 @@ from .handlers import (
     handle_config_command,
     handle_list_command,
     handle_task_status_command,
+    handle_logs_command,
 )
 from .config import get_api_token, get_org_id, get_base_url
 
@@ -96,6 +97,9 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         elif command == "task_status":
             return handle_task_status_command(args)
         
+        elif command == "logs":
+            return handle_logs_command(args)
+        
         else:
             return {
                 "status": "error",
@@ -130,4 +134,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -162,6 +162,12 @@ def handle_resume_command(args):
     # Get task
     task = agent.get_task(int(args.agent_run_id))
     
+    # Check if task is in a resumable state
+    if task.status != "COMPLETE":
+        logger.error(f"Agent run {args.agent_run_id} is not in a resumable state. Current status: {task.status}")
+        logger.error("Note: Only agent runs with status 'COMPLETE' can be resumed.")
+        return 1
+    
     # Build metadata
     metadata = {}
     
@@ -291,6 +297,51 @@ def handle_list_command(args):
     
     return 0
 
+def handle_logs_command(args):
+    """Handle the 'logs' command."""
+    # Load config
+    config = load_config()
+    
+    # Check required config
+    if "api_token" not in config:
+        logger.error("API token not configured. Use 'codegenapi config set api-token YOUR_TOKEN'")
+        return 1
+    
+    if "org_id" not in config:
+        logger.error("Organization ID not configured. Use 'codegenapi config set org_id YOUR_ORG_ID'")
+        return 1
+    
+    # Check required arguments
+    if not args.agent_run_id:
+        logger.error("Agent run ID is required")
+        return 1
+    
+    # Initialize client
+    client = CodegenClient(
+        ClientConfig(
+            api_token=config["api_token"],
+            org_id=config["org_id"]
+        )
+    )
+    
+    # Get agent run logs
+    try:
+        logs = client.get_agent_run_logs(
+            agent_run_id=int(args.agent_run_id),
+            skip=args.skip,
+            limit=args.limit
+        )
+        
+        # Print results
+        print(f"Logs for agent run {args.agent_run_id}:")
+        print(json.dumps(logs, indent=2))
+    
+    except Exception as e:
+        logger.error(f"Error getting agent run logs: {e}")
+        return 1
+    
+    return 0
+
 def main():
     """Main function."""
     parser = argparse.ArgumentParser(description="Codegen API Command-Line Interface")
@@ -305,7 +356,7 @@ def main():
     new_parser.add_argument("--query", required=True, help="Task description")
     
     # Resume command
-    resume_parser = subparsers.add_parser("resume", help="Resume an agent run")
+    resume_parser = subparsers.add_parser("resume", help="Resume a completed agent run")
     resume_parser.add_argument("--agent_run_id", required=True, help="Agent run ID to resume")
     resume_parser.add_argument("--task", help="Task type")
     resume_parser.add_argument("--query", required=True, help="Additional instructions")
@@ -322,6 +373,12 @@ def main():
     list_parser.add_argument("--limit", type=int, default=20, help="Maximum number of runs to return")
     list_parser.add_argument("--repo", help="Filter by repository")
     
+    # Logs command
+    logs_parser = subparsers.add_parser("logs", help="Get logs for an agent run")
+    logs_parser.add_argument("--agent_run_id", required=True, help="Agent run ID to get logs for")
+    logs_parser.add_argument("--skip", type=int, default=0, help="Number of logs to skip")
+    logs_parser.add_argument("--limit", type=int, default=100, help="Maximum number of logs to return")
+    
     args = parser.parse_args()
     
     if args.command == "new":
@@ -335,6 +392,9 @@ def main():
     
     elif args.command == "list":
         return handle_list_command(args)
+    
+    elif args.command == "logs":
+        return handle_logs_command(args)
     
     else:
         parser.print_help()

@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import time
+import requests
 from typing import Dict, Any, Optional, List
 
 from codegen_api_client import CodegenClient, ClientConfig, Agent, AgentRunStatus, SourceType
@@ -114,10 +115,17 @@ def validate_agents_endpoints(client: CodegenClient):
     
     # 7. Resume Agent Run
     print("7. POST /agent/run/{id}/resume - Resume Agent Run")
-    if agent_run_id:
-        try:
+    try:
+        # Find a completed agent run to resume
+        runs = client.list_agent_runs(limit=20)
+        completed_runs = [run for run in runs.items if run.status == "COMPLETE"]
+        
+        if completed_runs:
+            completed_run_id = completed_runs[0].id
+            print(f"Found completed agent run with ID {completed_run_id}")
+            
             resumed_run = client.resume_agent_run(
-                agent_run_id=agent_run_id,
+                agent_run_id=completed_run_id,
                 prompt="Resuming validation test for Codegen API endpoints",
                 metadata={
                     "test": True,
@@ -126,12 +134,12 @@ def validate_agents_endpoints(client: CodegenClient):
                     "orchestrator_run_id": ORCHESTRATOR_ID
                 }
             )
-            print(f"SUCCESS: Resumed agent run with ID {agent_run_id}")
+            print(f"SUCCESS: Resumed agent run with ID {completed_run_id}")
             print(f"Response: {resumed_run}")
-        except Exception as e:
-            print(f"ERROR: {e}")
-    else:
-        print("SKIPPED: No agent run ID available to test Resume Agent Run endpoint")
+        else:
+            print("SKIPPED: No completed agent runs available to test Resume Agent Run endpoint")
+    except Exception as e:
+        print(f"ERROR: {e}")
     print_separator()
 
 def validate_organizations_endpoints(client: CodegenClient):
@@ -161,6 +169,23 @@ def validate_agents_alpha_endpoints(client: CodegenClient):
         runs = client.list_agent_runs(limit=1)
         if runs.items:
             agent_run_id = runs.items[0].id
+            
+            # Try direct API call first to test both endpoints
+            headers = {"Authorization": f"Bearer {API_TOKEN}"}
+            
+            # Try v1 endpoint
+            v1_url = f"{BASE_URL}/organizations/{ORG_ID}/agent/run/{agent_run_id}/logs"
+            print(f"Trying endpoint: {v1_url}")
+            v1_response = requests.get(v1_url, headers=headers)
+            print(f"V1 endpoint status: {v1_response.status_code}")
+            
+            # Try v1/alpha endpoint
+            alpha_url = f"{BASE_URL.replace('/v1', '/v1/alpha')}/organizations/{ORG_ID}/agent/run/{agent_run_id}/logs"
+            print(f"Trying endpoint: {alpha_url}")
+            alpha_response = requests.get(alpha_url, headers=headers)
+            print(f"Alpha endpoint status: {alpha_response.status_code}")
+            
+            # Use client method which tries both endpoints
             logs = client.get_agent_run_logs(agent_run_id, limit=5)
             print(f"SUCCESS: Got logs for agent run with ID {agent_run_id}")
             print(f"Response: {logs}")

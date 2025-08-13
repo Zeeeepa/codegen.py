@@ -247,13 +247,51 @@ def test_resume_command(url: str) -> bool:
     })
     print(f"Response: {json.dumps(resume_response, indent=2)}")
     
-    # Note: We expect this to fail since the resume endpoint is not working
-    if resume_response.get("status") == "success":
+    # Note: We expect this to fail since the agent run is not in a resumable state
+    if resume_response.get("status") == "error" and "not in a resumable state" in resume_response.get("error", ""):
+        print("✅ Resume command test passed (expected error about resumable state)")
+        return True
+    elif resume_response.get("status") == "success":
         print("✅ Resume command test passed (unexpected success)")
         return True
     else:
-        print("ℹ️ Resume command test failed as expected (endpoint not available)")
+        print("❌ Resume command test failed (unexpected error)")
+        return False
+
+def test_logs_command(url: str) -> bool:
+    """Test the logs command."""
+    print("\n=== Testing logs command ===")
+    
+    # Create a new agent run first
+    print("Creating new agent run for logs test...")
+    response = send_request(url, "new", {
+        "repo": "Zeeeepa/codegen.py",
+        "task": "LOGS_TEST",
+        "query": "This is a test agent run for logs test from MCP server"
+    })
+    print(f"Response: {json.dumps(response, indent=2)}")
+    
+    if response.get("status") != "success" or not response.get("agent_run_id"):
+        print("❌ Failed to create new agent run for logs test")
+        return False
+    
+    agent_run_id = response["agent_run_id"]
+    
+    # Get logs for the agent run
+    print(f"\nGetting logs for agent run {agent_run_id}...")
+    logs_response = send_request(url, "logs", {
+        "agent_run_id": agent_run_id,
+        "skip": 0,
+        "limit": 10
+    })
+    print(f"Response: {json.dumps(logs_response, indent=2)}")
+    
+    if logs_response.get("status") == "success":
+        print("✅ Logs command test passed")
         return True
+    else:
+        print("❌ Logs command test failed")
+        return False
 
 def main():
     """Main function."""
@@ -306,6 +344,11 @@ def main():
             print("\n❌ Resume command test failed")
             return
         
+        # Test logs command
+        if not test_logs_command(url):
+            print("\n❌ Logs command test failed")
+            return
+        
         print("\n✅ All tests passed!")
     
     finally:
@@ -314,4 +357,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

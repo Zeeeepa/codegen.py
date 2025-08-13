@@ -122,9 +122,9 @@ class OrganizationsResponse(BaseModel):
 class AgentRunLog(BaseModel):
     """Agent run log entry."""
     agent_run_id: int
-    created_at: str
+    created_at: Optional[str] = None
     tool_name: Optional[str] = None
-    message_type: str
+    message_type: Optional[str] = None
     thought: Optional[str] = None
     observation: Optional[Dict[str, Any]] = None
     tool_input: Optional[Dict[str, Any]] = None
@@ -315,7 +315,10 @@ class CodegenClient:
     
     def resume_agent_run(self, agent_run_id: int, prompt: str, metadata: Dict[str, Any] = None) -> AgentRunResponse:
         """
-        Resume a paused agent run.
+        Resume a completed agent run.
+        
+        Note: This endpoint only works for agent runs with status "COMPLETE".
+        If the agent run is still "ACTIVE", this will fail with a "Not found" error.
         
         Args:
             agent_run_id: ID of the agent run to resume
@@ -324,7 +327,15 @@ class CodegenClient:
         
         Returns:
             Resumed agent run
+        
+        Raises:
+            Exception: If the agent run is not in a resumable state
         """
+        # First check if the agent run is in a resumable state
+        agent_run = self.get_agent_run(agent_run_id)
+        if agent_run.status != "COMPLETE":
+            raise Exception(f"Agent run {agent_run_id} is not in a resumable state. Current status: {agent_run.status}")
+        
         url = f"{self.config.base_url}/organizations/{self.config.org_id}/agent/run/{agent_run_id}/resume"
         
         request_data = ResumeAgentRunRequest(
@@ -377,9 +388,24 @@ class CodegenClient:
         Returns:
             Agent run with logs
         """
-        url = f"{self.config.base_url}/organizations/{self.config.org_id}/agent/run/{agent_run_id}/logs"
+        # Try both endpoints
+        endpoints = [
+            f"{self.config.base_url}/organizations/{self.config.org_id}/agent/run/{agent_run_id}/logs",
+            f"{self.config.base_url}/alpha/organizations/{self.config.org_id}/agent/run/{agent_run_id}/logs"
+        ]
         
         params = {"skip": skip, "limit": limit}
+        
+        for url in endpoints:
+            try:
+                response = requests.get(url, headers=self.get_headers(), params=params)
+                if response.status_code == 200:
+                    return response.json()
+            except Exception as e:
+                logger.warning(f"Error with endpoint {url}: {e}")
+        
+        # If both endpoints fail, try the v1/alpha endpoint
+        url = f"{self.config.base_url.replace('/v1', '/v1/alpha')}/organizations/{self.config.org_id}/agent/run/{agent_run_id}/logs"
         
         response = requests.get(url, headers=self.get_headers(), params=params)
         data = self._handle_response(response)
@@ -432,7 +458,17 @@ class Task:
         raise TimeoutError(f"Task {self.id} did not complete within {timeout} seconds")
     
     def resume(self, prompt: str) -> 'Task':
-        """Resume task."""
+        """
+        Resume task.
+        
+        Note: This only works for tasks with status "COMPLETE".
+        If the task is still "ACTIVE", this will fail.
+        """
+        # First check if the task is in a resumable state
+        self.refresh()
+        if self.status != "COMPLETE":
+            raise Exception(f"Task {self.id} is not in a resumable state. Current status: {self.status}")
+        
         try:
             agent_run = self.agent.client.resume_agent_run(self.id, prompt)
             self.status = agent_run.status
