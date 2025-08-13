@@ -2,7 +2,9 @@
   "codegenapi": {
     "command": "uv",
     "args": [
-      "mcp/server.py"
+      "run",
+      "mcp/server.py",
+      "--debug"
     ],
     "env": {
       "CODEGEN_ORG_ID": "323",
