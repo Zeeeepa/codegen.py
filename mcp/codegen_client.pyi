@@ -2,7 +2,7 @@
 Type stub file for codegen_client.py
 """
 
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, List, Union
 
 class CodegenAPIError(Exception):
     """Exception raised for Codegen API errors"""
@@ -17,42 +17,66 @@ class CodegenClient:
         base_url: str = "https://api.codegen.com"
     ) -> None: ...
     
-    def get_organizations(self) -> Dict[str, Any]: ...
+    # User endpoints
+    def get_users(self, org_id: Optional[str] = None, skip: int = 0, limit: int = 100) -> Dict[str, Any]: ...
     
-    def list_agent_runs(
-        self, 
-        status: Optional[str] = None,
-        limit: int = 100,
-        page: int = 1,
-        repo: Optional[str] = None
-    ) -> Dict[str, Any]: ...
+    def get_user(self, user_id: str, org_id: Optional[str] = None) -> Dict[str, Any]: ...
     
+    def get_current_user(self) -> Dict[str, Any]: ...
+    
+    # Organization endpoints
+    def get_organizations(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]: ...
+    
+    # Agent endpoints
     def create_agent_run(
         self, 
-        prompt: str,
+        prompt: str, 
+        org_id: Optional[str] = None,
         repo: Optional[str] = None,
         branch: Optional[str] = None,
         pr: Optional[int] = None,
         task: Optional[str] = None,
+        images: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         orchestrator_id: Optional[str] = None
     ) -> Dict[str, Any]: ...
     
-    def get_agent_run(self, agent_run_id: Union[str, int]) -> Dict[str, Any]: ...
+    def get_agent_run(self, agent_run_id: Union[str, int], org_id: Optional[str] = None) -> Dict[str, Any]: ...
     
     def resume_agent_run(
         self, 
-        agent_run_id: Union[str, int],
+        agent_run_id: Union[str, int], 
         prompt: str,
-        task: Optional[str] = None
+        org_id: Optional[str] = None,
+        task: Optional[str] = None,
+        images: Optional[List[str]] = None
+    ) -> Dict[str, Any]: ...
+    
+    def list_agent_runs(
+        self, 
+        org_id: Optional[str] = None,
+        status: Optional[str] = None,
+        user_id: Optional[str] = None,
+        repo: Optional[str] = None,
+        skip: int = 0, 
+        limit: int = 100
+    ) -> Dict[str, Any]: ...
+    
+    def get_agent_run_logs(
+        self, 
+        agent_run_id: Union[str, int], 
+        org_id: Optional[str] = None,
+        skip: int = 0, 
+        limit: int = 100
     ) -> Dict[str, Any]: ...
     
     def wait_for_completion(
         self, 
-        agent_run_id: Union[str, int],
-        timeout: Optional[float] = None,
-        poll_interval: float = 1.0
+        agent_run_id: Union[str, int], 
+        org_id: Optional[str] = None,
+        poll_interval: float = 5.0,
+        timeout: Optional[float] = None
     ) -> Dict[str, Any]: ...
     
-    def check_orchestrator_status(self, orchestrator_id: str) -> bool: ...
+    def check_orchestrator_status(self, orchestrator_id: str, org_id: Optional[str] = None) -> bool: ...
 

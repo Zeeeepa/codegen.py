@@ -5,7 +5,7 @@ Simplified Codegen API client for MCP server
 import os
 import time
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from enum import Enum
 import requests
 
@@ -116,6 +116,46 @@ class CodegenClient:
         
         return data
 
+    # ============================================================================
+    # USER ENDPOINTS
+    # ============================================================================
+
+    def get_users(self, org_id: Optional[str] = None, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        """Get all users in an organization"""
+        org_id = org_id or self.org_id
+        if not org_id:
+            raise ValidationError("Organization ID is required")
+        
+        url = f"{self.base_url}/v1/organizations/{org_id}/users"
+        params = {"skip": skip, "limit": limit}
+        
+        response = requests.get(url, headers=self._get_headers(), params=params)
+        return self._handle_response(response)
+
+    def get_user(self, user_id: str, org_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get a specific user by ID"""
+        org_id = org_id or self.org_id
+        if not org_id:
+            raise ValidationError("Organization ID is required")
+        if not user_id:
+            raise ValidationError("User ID is required")
+        
+        url = f"{self.base_url}/v1/organizations/{org_id}/users/{user_id}"
+        
+        response = requests.get(url, headers=self._get_headers())
+        return self._handle_response(response)
+
+    def get_current_user(self) -> Dict[str, Any]:
+        """Get information about the currently authenticated user"""
+        url = f"{self.base_url}/v1/users/me"
+        
+        response = requests.get(url, headers=self._get_headers())
+        return self._handle_response(response)
+
+    # ============================================================================
+    # ORGANIZATION ENDPOINTS
+    # ============================================================================
+
     def get_organizations(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """Get organizations for the authenticated user"""
         url = f"{self.base_url}/v1/organizations"
@@ -124,10 +164,18 @@ class CodegenClient:
         response = requests.get(url, headers=self._get_headers(), params=params)
         return self._handle_response(response)
 
+    # ============================================================================
+    # AGENT ENDPOINTS
+    # ============================================================================
+
     def create_agent_run(
         self, 
         prompt: str, 
         org_id: Optional[str] = None,
+        repo: Optional[str] = None,
+        branch: Optional[str] = None,
+        pr: Optional[int] = None,
+        task: Optional[str] = None,
         images: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         orchestrator_id: Optional[str] = None
@@ -139,22 +187,34 @@ class CodegenClient:
         
         url = f"{self.base_url}/v1/organizations/{org_id}/agent/run"
         
+        # Create metadata if not provided
+        if not metadata:
+            metadata = {}
+        
+        # Add repo, branch, pr, and task to metadata if provided
+        if repo:
+            metadata["repo"] = repo
+        if branch:
+            metadata["branch"] = branch
+        if pr:
+            metadata["pr"] = pr
+        if task:
+            metadata["task"] = task
+        
         payload = {
             "prompt": prompt,
             "images": images or [],
-            "metadata": metadata or {}
+            "metadata": metadata
         }
         
         # Add orchestrator ID to metadata if provided
         if orchestrator_id:
-            if not payload["metadata"]:
-                payload["metadata"] = {}
             payload["metadata"]["orchestrator_id"] = orchestrator_id
         
         response = requests.post(url, headers=self._get_headers(), json=payload)
         return self._handle_response(response)
 
-    def get_agent_run(self, org_id: Optional[str] = None, agent_run_id: str = None) -> Dict[str, Any]:
+    def get_agent_run(self, agent_run_id: Union[str, int], org_id: Optional[str] = None) -> Dict[str, Any]:
         """Get agent run details"""
         org_id = org_id or self.org_id
         if not org_id:
@@ -169,9 +229,10 @@ class CodegenClient:
 
     def resume_agent_run(
         self, 
-        agent_run_id: str, 
+        agent_run_id: Union[str, int], 
         prompt: str,
         org_id: Optional[str] = None,
+        task: Optional[str] = None,
         images: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Resume a paused agent run"""
@@ -189,14 +250,19 @@ class CodegenClient:
             "images": images or []
         }
         
+        # Add task to payload if provided
+        if task:
+            payload["task"] = task
+        
         response = requests.post(url, headers=self._get_headers(), json=payload)
         return self._handle_response(response)
 
     def list_agent_runs(
         self, 
         org_id: Optional[str] = None,
+        status: Optional[str] = None,
         user_id: Optional[str] = None,
-        source_type: Optional[str] = None,
+        repo: Optional[str] = None,
         skip: int = 0, 
         limit: int = 100
     ) -> Dict[str, Any]:
@@ -212,17 +278,19 @@ class CodegenClient:
             "limit": limit
         }
         
+        if status:
+            params["status"] = status
         if user_id:
             params["user_id"] = user_id
-        if source_type:
-            params["source_type"] = source_type
+        if repo:
+            params["repo"] = repo
         
         response = requests.get(url, headers=self._get_headers(), params=params)
         return self._handle_response(response)
 
     def get_agent_run_logs(
         self, 
-        agent_run_id: str, 
+        agent_run_id: Union[str, int], 
         org_id: Optional[str] = None,
         skip: int = 0, 
         limit: int = 100
@@ -246,7 +314,7 @@ class CodegenClient:
 
     def wait_for_completion(
         self, 
-        agent_run_id: str, 
+        agent_run_id: Union[str, int], 
         org_id: Optional[str] = None,
         poll_interval: float = 5.0,
         timeout: Optional[float] = None
@@ -263,7 +331,7 @@ class CodegenClient:
                 raise TimeoutError(f"Agent run {agent_run_id} did not complete within timeout")
             
             # Get current status
-            result = self.get_agent_run(org_id, agent_run_id)
+            result = self.get_agent_run(agent_run_id, org_id)
             status = result.get("status")
             
             # Check if completed or failed
@@ -276,7 +344,7 @@ class CodegenClient:
     def check_orchestrator_status(self, orchestrator_id: str, org_id: Optional[str] = None) -> bool:
         """Check if an orchestrator agent is still running"""
         try:
-            result = self.get_agent_run(org_id, orchestrator_id)
+            result = self.get_agent_run(orchestrator_id, org_id)
             status = result.get("status")
             return status == AgentRunStatus.RUNNING.value
         except Exception as e:

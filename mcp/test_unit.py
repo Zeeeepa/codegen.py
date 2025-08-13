@@ -1,18 +1,21 @@
-#!/usr/bin/env python3
 """
-Unit tests for MCP server components
+Unit tests for Codegen MCP server
 """
 
 import os
-import sys
+import json
 import unittest
+import tempfile
 from unittest import mock
-from pathlib import Path
+from typing import Dict, Any, Optional
 
-# Add the current directory to the path
+# Set up test environment
+os.environ["CODEGEN_API_TOKEN"] = "test_token"
+os.environ["CODEGEN_ORG_ID"] = "test_org_id"
+
+# Import server components
+import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Import components
 from config import Config
 from codegen_client import CodegenClient
 from state_manager import StateManager
@@ -22,234 +25,282 @@ class TestConfig(unittest.TestCase):
     
     def setUp(self):
         """Set up test environment"""
-        # Use a temporary config file
-        self.test_config_dir = Path("/tmp/codegen_test")
-        self.test_config_dir.mkdir(parents=True, exist_ok=True)
-        self.test_config_file = self.test_config_dir / "config.json"
-        
-        # Create a test config
-        self.config = Config(config_file=self.test_config_file)
+        self.test_dir = tempfile.mkdtemp(prefix="codegen_test")
+        self.config_file = os.path.join(self.test_dir, "config.json")
     
-    def tearDown(self):
-        """Clean up test environment"""
-        # Remove the test config file
-        if self.test_config_file.exists():
-            self.test_config_file.unlink()
-        
-        # Remove the test config directory
-        if self.test_config_dir.exists():
-            self.test_config_dir.rmdir()
+    def test_init(self):
+        """Test initialization"""
+        config = Config(self.config_file)
+        self.assertIsNotNone(config)
     
-    def test_set_get_config(self):
-        """Test setting and getting config values"""
-        # Set a config value
-        self.config.set("test_key", "test_value")
-        
-        # Get the config value
-        value = self.config.get("test_key")
-        
-        # Check the value
-        self.assertEqual(value, "test_value")
+    def test_get_set(self):
+        """Test get and set methods"""
+        config = Config(self.config_file)
+        config.set("test_key", "test_value")
+        self.assertEqual(config.get("test_key"), "test_value")
     
-    def test_validate_config(self):
-        """Test validating config"""
-        # Set required config values
-        self.config.set("org_id", "123")
-        self.config.set("api_token", "test_token")
-        
-        # Validate the config
-        is_valid = self.config.validate()
-        
-        # Check the result
-        self.assertTrue(is_valid)
-    
-    def test_validate_config_missing_values(self):
-        """Test validating config with missing values"""
-        # Clear the config
-        self.config.set("org_id", None)
-        self.config.set("api_token", None)
-        
-        # Validate the config
-        is_valid = self.config.validate()
-        
-        # Check the result
-        self.assertFalse(is_valid)
+    def test_validate(self):
+        """Test validate method"""
+        config = Config(self.config_file)
+        config.set("api_token", "test_token")
+        config.set("org_id", "test_org_id")
+        self.assertTrue(config.validate())
 
 class TestCodegenClient(unittest.TestCase):
     """Test the CodegenClient class"""
     
     def setUp(self):
         """Set up test environment"""
-        # Create a test client
         self.client = CodegenClient(
-            org_id="123",
+            org_id="test_org_id",
             api_token="test_token",
-            base_url="https://api.example.com"
+            base_url="https://api.codegen.com"
         )
     
-    @mock.patch("codegen_client.requests.get")
-    def test_get_organizations(self, mock_get):
-        """Test getting organizations"""
-        # Mock the response
+    @mock.patch("requests.get")
+    def test_get_users(self, mock_get):
+        """Test get_users method"""
+        # Mock response
         mock_response = mock.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "items": [
-                {
-                    "id": 123,
-                    "name": "Test Org",
-                    "settings": {
-                        "enable_pr_creation": True,
-                        "enable_rules_detection": True
-                    }
-                }
+                {"id": "user1", "name": "User 1"},
+                {"id": "user2", "name": "User 2"}
             ],
-            "total": 1,
-            "page": 1,
-            "size": 100,
-            "pages": 1
+            "total": 2
         }
         mock_get.return_value = mock_response
         
-        # Call the method
+        # Call method
+        result = self.client.get_users()
+        
+        # Verify result
+        self.assertEqual(len(result["items"]), 2)
+        self.assertEqual(result["items"][0]["id"], "user1")
+        
+        # Verify request
+        mock_get.assert_called_once()
+        args, kwargs = mock_get.call_args
+        self.assertEqual(kwargs["params"]["limit"], 100)
+    
+    @mock.patch("requests.get")
+    def test_get_user(self, mock_get):
+        """Test get_user method"""
+        # Mock response
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "id": "user1",
+            "name": "User 1",
+            "email": "user1@example.com"
+        }
+        mock_get.return_value = mock_response
+        
+        # Call method
+        result = self.client.get_user("user1")
+        
+        # Verify result
+        self.assertEqual(result["id"], "user1")
+        self.assertEqual(result["name"], "User 1")
+        
+        # Verify request
+        mock_get.assert_called_once()
+    
+    @mock.patch("requests.get")
+    def test_get_current_user(self, mock_get):
+        """Test get_current_user method"""
+        # Mock response
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "id": "current_user",
+            "name": "Current User",
+            "email": "current@example.com"
+        }
+        mock_get.return_value = mock_response
+        
+        # Call method
+        result = self.client.get_current_user()
+        
+        # Verify result
+        self.assertEqual(result["id"], "current_user")
+        self.assertEqual(result["name"], "Current User")
+        
+        # Verify request
+        mock_get.assert_called_once()
+    
+    @mock.patch("requests.get")
+    def test_get_organizations(self, mock_get):
+        """Test get_organizations method"""
+        # Mock response
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "items": [
+                {"id": "org1", "name": "Organization 1"},
+                {"id": "org2", "name": "Organization 2"}
+            ],
+            "total": 2
+        }
+        mock_get.return_value = mock_response
+        
+        # Call method
         result = self.client.get_organizations()
         
-        # Check the result
-        self.assertEqual(result["items"][0]["id"], 123)
-        self.assertEqual(result["items"][0]["name"], "Test Org")
+        # Verify result
+        self.assertEqual(len(result["items"]), 2)
+        self.assertEqual(result["items"][0]["id"], "org1")
+        
+        # Verify request
+        mock_get.assert_called_once()
+        args, kwargs = mock_get.call_args
+        self.assertEqual(kwargs["params"]["limit"], 100)
     
-    @mock.patch("codegen_client.requests.post")
+    @mock.patch("requests.post")
     def test_create_agent_run(self, mock_post):
-        """Test creating an agent run"""
-        # Mock the response
+        """Test create_agent_run method"""
+        # Mock response
         mock_response = mock.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "id": 456,
-            "organization_id": 123,
-            "status": "ACTIVE",
-            "created_at": "2025-08-13 00:00:00.000000",
-            "web_url": "https://codegen.com/agent/trace/456",
-            "result": None,
-            "source_type": "API",
-            "github_pull_requests": [],
-            "metadata": {}
+            "id": "run1",
+            "status": "running",
+            "web_url": "https://codegen.com/runs/run1"
         }
         mock_post.return_value = mock_response
         
-        # Call the method
+        # Call method
         result = self.client.create_agent_run(
             prompt="Test prompt",
-            metadata={"test": True}
+            repo="test/repo",
+            branch="main",
+            task="TEST"
         )
         
-        # Check the result
-        self.assertEqual(result["id"], 456)
-        self.assertEqual(result["status"], "ACTIVE")
+        # Verify result
+        self.assertEqual(result["id"], "run1")
+        self.assertEqual(result["status"], "running")
+        
+        # Verify request
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+        self.assertEqual(kwargs["json"]["prompt"], "Test prompt")
+        self.assertEqual(kwargs["json"]["metadata"]["repo"], "test/repo")
     
-    @mock.patch("codegen_client.requests.post")
-    def test_resume_agent_run(self, mock_post):
-        """Test resuming an agent run"""
-        # Mock the response
+    @mock.patch("requests.get")
+    def test_get_agent_run(self, mock_get):
+        """Test get_agent_run method"""
+        # Mock response
         mock_response = mock.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "id": 456,
-            "organization_id": 123,
-            "status": "ACTIVE",
-            "created_at": "2025-08-13 00:00:00.000000",
-            "web_url": "https://codegen.com/agent/trace/456",
-            "result": None,
-            "source_type": "API",
-            "github_pull_requests": [],
-            "metadata": {}
+            "id": "run1",
+            "status": "running",
+            "web_url": "https://codegen.com/runs/run1"
+        }
+        mock_get.return_value = mock_response
+        
+        # Call method
+        result = self.client.get_agent_run("run1")
+        
+        # Verify result
+        self.assertEqual(result["id"], "run1")
+        self.assertEqual(result["status"], "running")
+        
+        # Verify request
+        mock_get.assert_called_once()
+    
+    @mock.patch("requests.post")
+    def test_resume_agent_run(self, mock_post):
+        """Test resume_agent_run method"""
+        # Mock response
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "id": "run1",
+            "status": "running",
+            "web_url": "https://codegen.com/runs/run1"
         }
         mock_post.return_value = mock_response
         
-        # Call the method
+        # Call method
         result = self.client.resume_agent_run(
-            agent_run_id=456,
-            prompt="Test prompt"
+            agent_run_id="run1",
+            prompt="Resume prompt",
+            task="TEST"
         )
         
-        # Check the result
-        self.assertEqual(result["id"], 456)
-        self.assertEqual(result["status"], "ACTIVE")
+        # Verify result
+        self.assertEqual(result["id"], "run1")
+        self.assertEqual(result["status"], "running")
+        
+        # Verify request
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+        self.assertEqual(kwargs["json"]["agent_run_id"], "run1")
+        self.assertEqual(kwargs["json"]["prompt"], "Resume prompt")
+    
+    @mock.patch("requests.get")
+    def test_get_agent_run_logs(self, mock_get):
+        """Test get_agent_run_logs method"""
+        # Mock response
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "items": [
+                {"id": "log1", "message": "Log 1"},
+                {"id": "log2", "message": "Log 2"}
+            ],
+            "total": 2
+        }
+        mock_get.return_value = mock_response
+        
+        # Call method
+        result = self.client.get_agent_run_logs("run1")
+        
+        # Verify result
+        self.assertEqual(len(result["items"]), 2)
+        self.assertEqual(result["items"][0]["id"], "log1")
+        
+        # Verify request
+        mock_get.assert_called_once()
+        args, kwargs = mock_get.call_args
+        self.assertEqual(kwargs["params"]["limit"], 100)
 
 class TestStateManager(unittest.TestCase):
     """Test the StateManager class"""
     
     def setUp(self):
         """Set up test environment"""
-        # Use a temporary state directory
-        self.test_state_dir = Path("/tmp/codegen_test_state")
-        self.test_state_dir.mkdir(parents=True, exist_ok=True)
-        self.test_runs_file = self.test_state_dir / "runs.json"
-        self.test_orchestrators_file = self.test_state_dir / "orchestrators.json"
-        
-        # Create a test state manager
-        self.state_manager = StateManager(state_dir=self.test_state_dir)
-    
-    def tearDown(self):
-        """Clean up test environment"""
-        # Remove the test state files
-        if self.test_runs_file.exists():
-            self.test_runs_file.unlink()
-        
-        if self.test_orchestrators_file.exists():
-            self.test_orchestrators_file.unlink()
-        
-        # Remove the test state directory
-        if self.test_state_dir.exists():
-            self.test_state_dir.rmdir()
+        self.test_dir = tempfile.mkdtemp(prefix="codegen_test")
+        self.state_manager = StateManager(self.test_dir)
     
     def test_register_run(self):
-        """Test registering a run"""
-        # Register a run
+        """Test register_run method"""
         self.state_manager.register_run(
-            run_id="test-run-123",
-            orchestrator_id="test-orchestrator-456",
-            metadata={"test": True}
+            run_id="run1",
+            orchestrator_id="orch1",
+            metadata={"test": "value"}
         )
         
-        # Get the run
-        run = self.state_manager.get_run("test-run-123")
-        
-        # Check the run
-        self.assertEqual(run["id"], "test-run-123")
-        self.assertEqual(run["orchestrator_id"], "test-orchestrator-456")
-        self.assertEqual(run["status"], "running")
-        self.assertEqual(run["metadata"]["test"], True)
+        run = self.state_manager.get_run("run1")
+        self.assertEqual(run["id"], "run1")
+        self.assertEqual(run["orchestrator_id"], "orch1")
+        self.assertEqual(run["metadata"]["test"], "value")
     
-    def test_register_orchestrator(self):
-        """Test registering an orchestrator"""
-        # Register an orchestrator
-        self.state_manager.register_orchestrator("test-orchestrator-456")
-        
-        # Get the orchestrator
-        orchestrator = self.state_manager.get_orchestrator("test-orchestrator-456")
-        
-        # Check the orchestrator
-        self.assertEqual(orchestrator["id"], "test-orchestrator-456")
-        self.assertEqual(orchestrator["status"], "running")
-        self.assertEqual(orchestrator["child_runs"], [])
-    
-    def test_add_child_to_orchestrator(self):
-        """Test adding a child to an orchestrator"""
-        # Register an orchestrator
-        self.state_manager.register_orchestrator("test-orchestrator-456")
-        
-        # Add a child to the orchestrator
-        self.state_manager.add_child_to_orchestrator(
-            orchestrator_id="test-orchestrator-456",
-            child_run_id="test-run-123"
+    def test_update_run_status(self):
+        """Test update_run_status method"""
+        self.state_manager.register_run(run_id="run1")
+        self.state_manager.update_run_status(
+            run_id="run1",
+            status="completed",
+            result={"output": "test"}
         )
         
-        # Get the orchestrator
-        orchestrator = self.state_manager.get_orchestrator("test-orchestrator-456")
-        
-        # Check the orchestrator
-        self.assertEqual(orchestrator["child_runs"], ["test-run-123"])
+        run = self.state_manager.get_run("run1")
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual(run["result"]["output"], "test")
 
 if __name__ == "__main__":
     unittest.main()

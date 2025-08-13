@@ -6,12 +6,14 @@ MCP server for Codegen API
 import os
 import sys
 import json
+import time
 import logging
 import argparse
-from typing import Dict, Any, Optional, List, Union
+import threading
+from typing import Dict, Any, Optional, List, Union, TypedDict, cast
 from dataclasses import dataclass, field
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 # Configure logging
 logging.basicConfig(
@@ -87,7 +89,164 @@ class MCPServer:
             "tools": [tool.to_dict() for tool in self.tools]
         }
 
-# Define MCP tools
+# ============================================================================
+# MCP TOOL IMPLEMENTATIONS
+# ============================================================================
+
+# USER ENDPOINTS
+
+def codegenapi_get_users(
+    skip: int = 0,
+    limit: int = 100
+) -> Dict[str, Any]:
+    """Get all users in an organization"""
+    try:
+        # Get configuration
+        config = Config()
+        if not config.validate():
+            return {
+                "status": "error",
+                "message": "Configuration not valid. Please set org_id and api_token."
+            }
+        
+        # Create client
+        client = CodegenClient(
+            org_id=config.get("org_id"),
+            api_token=config.get("api_token")
+        )
+        
+        # Get users
+        result = client.get_users(
+            skip=skip,
+            limit=limit
+        )
+        
+        # Return result
+        return {
+            "status": "success",
+            "users": result.get("items", []),
+            "total": result.get("total", 0)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting users: {e}")
+        return {
+            "status": "error",
+            "message": f"Error getting users: {str(e)}"
+        }
+
+def codegenapi_get_user(
+    user_id: str
+) -> Dict[str, Any]:
+    """Get a specific user by ID"""
+    try:
+        # Get configuration
+        config = Config()
+        if not config.validate():
+            return {
+                "status": "error",
+                "message": "Configuration not valid. Please set org_id and api_token."
+            }
+        
+        # Create client
+        client = CodegenClient(
+            org_id=config.get("org_id"),
+            api_token=config.get("api_token")
+        )
+        
+        # Get user
+        result = client.get_user(user_id=user_id)
+        
+        # Return result
+        return {
+            "status": "success",
+            "user": result
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting user: {e}")
+        return {
+            "status": "error",
+            "message": f"Error getting user: {str(e)}"
+        }
+
+def codegenapi_get_current_user() -> Dict[str, Any]:
+    """Get information about the currently authenticated user"""
+    try:
+        # Get configuration
+        config = Config()
+        if not config.validate():
+            return {
+                "status": "error",
+                "message": "Configuration not valid. Please set org_id and api_token."
+            }
+        
+        # Create client
+        client = CodegenClient(
+            org_id=config.get("org_id"),
+            api_token=config.get("api_token")
+        )
+        
+        # Get current user
+        result = client.get_current_user()
+        
+        # Return result
+        return {
+            "status": "success",
+            "user": result
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting current user: {e}")
+        return {
+            "status": "error",
+            "message": f"Error getting current user: {str(e)}"
+        }
+
+# ORGANIZATION ENDPOINTS
+
+def codegenapi_get_organizations(
+    skip: int = 0,
+    limit: int = 100
+) -> Dict[str, Any]:
+    """Get organizations for the authenticated user"""
+    try:
+        # Get configuration
+        config = Config()
+        if not config.validate():
+            return {
+                "status": "error",
+                "message": "Configuration not valid. Please set org_id and api_token."
+            }
+        
+        # Create client
+        client = CodegenClient(
+            org_id=config.get("org_id"),
+            api_token=config.get("api_token")
+        )
+        
+        # Get organizations
+        result = client.get_organizations(
+            skip=skip,
+            limit=limit
+        )
+        
+        # Return result
+        return {
+            "status": "success",
+            "organizations": result.get("items", []),
+            "total": result.get("total", 0)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting organizations: {e}")
+        return {
+            "status": "error",
+            "message": f"Error getting organizations: {str(e)}"
+        }
+
+# AGENT ENDPOINTS
+
 def codegenapi_new(
     repo: Optional[str] = None,
     branch: Optional[str] = None,
@@ -143,6 +302,41 @@ def codegenapi_new(
         return {
             "status": "error",
             "message": f"Error creating agent run: {str(e)}"
+        }
+
+def codegenapi_get_agent_run(
+    agent_run_id: Union[str, int]
+) -> Dict[str, Any]:
+    """Get agent run details"""
+    try:
+        # Get configuration
+        config = Config()
+        if not config.validate():
+            return {
+                "status": "error",
+                "message": "Configuration not valid. Please set org_id and api_token."
+            }
+        
+        # Create client
+        client = CodegenClient(
+            org_id=config.get("org_id"),
+            api_token=config.get("api_token")
+        )
+        
+        # Get agent run
+        result = client.get_agent_run(agent_run_id=agent_run_id)
+        
+        # Return result
+        return {
+            "status": "success",
+            "agent_run": result
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting agent run: {e}")
+        return {
+            "status": "error",
+            "message": f"Error getting agent run: {str(e)}"
         }
 
 def codegenapi_resume(
@@ -207,6 +401,102 @@ def codegenapi_resume(
         return {
             "status": "error",
             "message": f"Error resuming agent run: {str(e)}"
+        }
+
+def codegenapi_list(
+    status: Optional[str] = None,
+    limit: int = 100,
+    repo: Optional[str] = None
+) -> Dict[str, Any]:
+    """List agent runs"""
+    try:
+        # Get configuration
+        config = Config()
+        if not config.validate():
+            return {
+                "status": "error",
+                "message": "Configuration not valid. Please set org_id and api_token."
+            }
+        
+        # Create client
+        client = CodegenClient(
+            org_id=config.get("org_id"),
+            api_token=config.get("api_token")
+        )
+        
+        # List agent runs
+        result = client.list_agent_runs(
+            status=status,
+            limit=limit,
+            repo=repo
+        )
+        
+        # Format runs
+        runs = []
+        for run in result.get("items", []):
+            runs.append({
+                "id": run.get("id"),
+                "status": run.get("status"),
+                "created_at": run.get("created_at"),
+                "web_url": run.get("web_url"),
+                "repo": run.get("metadata", {}).get("repo"),
+                "task": run.get("metadata", {}).get("task")
+            })
+        
+        # Return result
+        return {
+            "status": "success",
+            "runs": runs,
+            "total": len(runs)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error listing agent runs: {e}")
+        return {
+            "status": "error",
+            "message": f"Error listing agent runs: {str(e)}"
+        }
+
+def codegenapi_get_agent_run_logs(
+    agent_run_id: Union[str, int],
+    skip: int = 0,
+    limit: int = 100
+) -> Dict[str, Any]:
+    """Get logs for an agent run"""
+    try:
+        # Get configuration
+        config = Config()
+        if not config.validate():
+            return {
+                "status": "error",
+                "message": "Configuration not valid. Please set org_id and api_token."
+            }
+        
+        # Create client
+        client = CodegenClient(
+            org_id=config.get("org_id"),
+            api_token=config.get("api_token")
+        )
+        
+        # Get agent run logs
+        result = client.get_agent_run_logs(
+            agent_run_id=agent_run_id,
+            skip=skip,
+            limit=limit
+        )
+        
+        # Return result
+        return {
+            "status": "success",
+            "logs": result.get("items", []),
+            "total": result.get("total", 0)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting agent run logs: {e}")
+        return {
+            "status": "error",
+            "message": f"Error getting agent run logs: {str(e)}"
         }
 
 def codegenapi_config(
@@ -275,60 +565,6 @@ def codegenapi_config(
             "message": f"Error managing configuration: {str(e)}"
         }
 
-def codegenapi_list(
-    status: Optional[str] = None,
-    limit: int = 100,
-    repo: Optional[str] = None
-) -> Dict[str, Any]:
-    """List agent runs"""
-    try:
-        # Get configuration
-        config = Config()
-        if not config.validate():
-            return {
-                "status": "error",
-                "message": "Configuration not valid. Please set org_id and api_token."
-            }
-        
-        # Create client
-        client = CodegenClient(
-            org_id=config.get("org_id"),
-            api_token=config.get("api_token")
-        )
-        
-        # List agent runs
-        result = client.list_agent_runs(
-            status=status,
-            limit=limit,
-            repo=repo
-        )
-        
-        # Format runs
-        runs = []
-        for run in result.get("items", []):
-            runs.append({
-                "id": run.get("id"),
-                "status": run.get("status"),
-                "created_at": run.get("created_at"),
-                "web_url": run.get("web_url"),
-                "repo": run.get("metadata", {}).get("repo"),
-                "task": run.get("metadata", {}).get("task")
-            })
-        
-        # Return result
-        return {
-            "status": "success",
-            "runs": runs,
-            "total": len(runs)
-        }
-    
-    except Exception as e:
-        logger.error(f"Error listing agent runs: {e}")
-        return {
-            "status": "error",
-            "message": f"Error listing agent runs: {str(e)}"
-        }
-
 # Define MCP request handler
 class MCPRequestHandler(BaseHTTPRequestHandler):
     """MCP request handler"""
@@ -384,6 +620,68 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
                 name="Codegen MCP Server",
                 description="MCP server for Codegen API",
                 tools=[
+                    # User endpoints
+                    MCPTool(
+                        name="codegenapi_get_users",
+                        description="Get all users in an organization",
+                        parameters=[
+                            MCPToolParameter(
+                                name="skip",
+                                description="Number of users to skip (for pagination)",
+                                required=False,
+                                type="integer",
+                                default=0
+                            ),
+                            MCPToolParameter(
+                                name="limit",
+                                description="Maximum number of users to return",
+                                required=False,
+                                type="integer",
+                                default=100
+                            )
+                        ]
+                    ),
+                    MCPTool(
+                        name="codegenapi_get_user",
+                        description="Get a specific user by ID",
+                        parameters=[
+                            MCPToolParameter(
+                                name="user_id",
+                                description="User ID",
+                                required=True,
+                                type="string"
+                            )
+                        ]
+                    ),
+                    MCPTool(
+                        name="codegenapi_get_current_user",
+                        description="Get information about the currently authenticated user",
+                        parameters=[]
+                    ),
+                    
+                    # Organization endpoints
+                    MCPTool(
+                        name="codegenapi_get_organizations",
+                        description="Get organizations for the authenticated user",
+                        parameters=[
+                            MCPToolParameter(
+                                name="skip",
+                                description="Number of organizations to skip (for pagination)",
+                                required=False,
+                                type="integer",
+                                default=0
+                            ),
+                            MCPToolParameter(
+                                name="limit",
+                                description="Maximum number of organizations to return",
+                                required=False,
+                                type="integer",
+                                default=100
+                            )
+                        ]
+                    ),
+                    
+                    # Agent endpoints
                     MCPTool(
                         name="codegenapi_new",
                         description="Start a new agent run",
@@ -421,6 +719,18 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
                         ]
                     ),
                     MCPTool(
+                        name="codegenapi_get_agent_run",
+                        description="Get agent run details",
+                        parameters=[
+                            MCPToolParameter(
+                                name="agent_run_id",
+                                description="Agent run ID",
+                                required=True,
+                                type="string"
+                            )
+                        ]
+                    ),
+                    MCPTool(
                         name="codegenapi_resume",
                         description="Resume an agent run",
                         parameters=[
@@ -439,32 +749,6 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
                             MCPToolParameter(
                                 name="query",
                                 description="Query or prompt for the agent",
-                                required=False,
-                                type="string"
-                            )
-                        ]
-                    ),
-                    MCPTool(
-                        name="codegenapi_config",
-                        description="Manage configuration",
-                        parameters=[
-                            MCPToolParameter(
-                                name="action",
-                                description="Action to perform",
-                                required=False,
-                                type="string",
-                                default="list",
-                                enum=["list", "get", "set"]
-                            ),
-                            MCPToolParameter(
-                                name="key",
-                                description="Configuration key",
-                                required=False,
-                                type="string"
-                            ),
-                            MCPToolParameter(
-                                name="value",
-                                description="Configuration value",
                                 required=False,
                                 type="string"
                             )
@@ -490,6 +774,58 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
                             MCPToolParameter(
                                 name="repo",
                                 description="Filter by repository",
+                                required=False,
+                                type="string"
+                            )
+                        ]
+                    ),
+                    MCPTool(
+                        name="codegenapi_get_agent_run_logs",
+                        description="Get logs for an agent run",
+                        parameters=[
+                            MCPToolParameter(
+                                name="agent_run_id",
+                                description="Agent run ID",
+                                required=True,
+                                type="string"
+                            ),
+                            MCPToolParameter(
+                                name="skip",
+                                description="Number of logs to skip (for pagination)",
+                                required=False,
+                                type="integer",
+                                default=0
+                            ),
+                            MCPToolParameter(
+                                name="limit",
+                                description="Maximum number of logs to return",
+                                required=False,
+                                type="integer",
+                                default=100
+                            )
+                        ]
+                    ),
+                    MCPTool(
+                        name="codegenapi_config",
+                        description="Manage configuration",
+                        parameters=[
+                            MCPToolParameter(
+                                name="action",
+                                description="Action to perform",
+                                required=False,
+                                type="string",
+                                default="list",
+                                enum=["list", "get", "set"]
+                            ),
+                            MCPToolParameter(
+                                name="key",
+                                description="Configuration key",
+                                required=False,
+                                type="string"
+                            ),
+                            MCPToolParameter(
+                                name="value",
+                                description="Configuration value",
                                 required=False,
                                 type="string"
                             )
@@ -525,8 +861,33 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
                 parameters = data.get("parameters", {})
                 
                 # Handle tool invocation
-                if tool_name == "codegenapi_new":
+                if tool_name == "codegenapi_get_users":
+                    result = codegenapi_get_users(**parameters)
+                    self._send_response(200, result)
+                    return
+                
+                elif tool_name == "codegenapi_get_user":
+                    result = codegenapi_get_user(**parameters)
+                    self._send_response(200, result)
+                    return
+                
+                elif tool_name == "codegenapi_get_current_user":
+                    result = codegenapi_get_current_user()
+                    self._send_response(200, result)
+                    return
+                
+                elif tool_name == "codegenapi_get_organizations":
+                    result = codegenapi_get_organizations(**parameters)
+                    self._send_response(200, result)
+                    return
+                
+                elif tool_name == "codegenapi_new":
                     result = codegenapi_new(**parameters)
+                    self._send_response(200, result)
+                    return
+                
+                elif tool_name == "codegenapi_get_agent_run":
+                    result = codegenapi_get_agent_run(**parameters)
                     self._send_response(200, result)
                     return
                 
@@ -535,13 +896,18 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
                     self._send_response(200, result)
                     return
                 
-                elif tool_name == "codegenapi_config":
-                    result = codegenapi_config(**parameters)
+                elif tool_name == "codegenapi_list":
+                    result = codegenapi_list(**parameters)
                     self._send_response(200, result)
                     return
                 
-                elif tool_name == "codegenapi_list":
-                    result = codegenapi_list(**parameters)
+                elif tool_name == "codegenapi_get_agent_run_logs":
+                    result = codegenapi_get_agent_run_logs(**parameters)
+                    self._send_response(200, result)
+                    return
+                
+                elif tool_name == "codegenapi_config":
+                    result = codegenapi_config(**parameters)
                     self._send_response(200, result)
                     return
                 
@@ -601,10 +967,16 @@ def main() -> None:
     print("=" * 80)
     print(f"Starting server on {args.host}:{args.port}")
     print("Available tools:")
+    print("  - codegenapi_get_users")
+    print("  - codegenapi_get_user")
+    print("  - codegenapi_get_current_user")
+    print("  - codegenapi_get_organizations")
     print("  - codegenapi_new")
+    print("  - codegenapi_get_agent_run")
     print("  - codegenapi_resume")
-    print("  - codegenapi_config")
     print("  - codegenapi_list")
+    print("  - codegenapi_get_agent_run_logs")
+    print("  - codegenapi_config")
     print("=" * 80)
     
     # Start server

@@ -6,10 +6,10 @@ A Model Context Protocol (MCP) server for Codegen API integration.
 
 This MCP server provides a standardized interface for AI assistants to interact with the Codegen API, enabling:
 
-- Creating new agent runs
-- Resuming existing agent runs
+- Managing users and organizations
+- Creating and managing agent runs
+- Retrieving agent run logs
 - Managing configuration
-- Listing agent runs
 
 ## Installation
 
@@ -78,7 +78,57 @@ python server.py --debug
 
 ### Available MCP Tools
 
-#### `codegenapi_new` - Start new agent run
+#### User Endpoints
+
+##### `codegenapi_get_users` - Get all users in an organization
+
+```json
+{
+  "name": "codegenapi_get_users",
+  "parameters": {
+    "skip": 0,
+    "limit": 100
+  }
+}
+```
+
+##### `codegenapi_get_user` - Get a specific user by ID
+
+```json
+{
+  "name": "codegenapi_get_user",
+  "parameters": {
+    "user_id": "user_123"
+  }
+}
+```
+
+##### `codegenapi_get_current_user` - Get information about the currently authenticated user
+
+```json
+{
+  "name": "codegenapi_get_current_user",
+  "parameters": {}
+}
+```
+
+#### Organization Endpoints
+
+##### `codegenapi_get_organizations` - Get organizations for the authenticated user
+
+```json
+{
+  "name": "codegenapi_get_organizations",
+  "parameters": {
+    "skip": 0,
+    "limit": 100
+  }
+}
+```
+
+#### Agent Endpoints
+
+##### `codegenapi_new` - Start new agent run
 
 ```json
 {
@@ -93,33 +143,31 @@ python server.py --debug
 }
 ```
 
-#### `codegenapi_resume` - Resume agent run
+##### `codegenapi_get_agent_run` - Get agent run details
+
+```json
+{
+  "name": "codegenapi_get_agent_run",
+  "parameters": {
+    "agent_run_id": "11745"
+  }
+}
+```
+
+##### `codegenapi_resume` - Resume agent run
 
 ```json
 {
   "name": "codegenapi_resume",
   "parameters": {
-    "agent_run_id": 11745,
+    "agent_run_id": "11745",
     "task": "ANALYZE",
     "query": "analyze frontend of the codebase"
   }
 }
 ```
 
-#### `codegenapi_config` - Manage configuration
-
-```json
-{
-  "name": "codegenapi_config",
-  "parameters": {
-    "action": "set",
-    "key": "api_token",
-    "value": "your_api_token"
-  }
-}
-```
-
-#### `codegenapi_list` - List agent runs
+##### `codegenapi_list` - List agent runs
 
 ```json
 {
@@ -128,6 +176,34 @@ python server.py --debug
     "status": "running",
     "limit": 20,
     "repo": "user/repo"
+  }
+}
+```
+
+##### `codegenapi_get_agent_run_logs` - Get logs for an agent run
+
+```json
+{
+  "name": "codegenapi_get_agent_run_logs",
+  "parameters": {
+    "agent_run_id": "11745",
+    "skip": 0,
+    "limit": 100
+  }
+}
+```
+
+#### Configuration Management
+
+##### `codegenapi_config` - Manage configuration
+
+```json
+{
+  "name": "codegenapi_config",
+  "parameters": {
+    "action": "set",
+    "key": "api_token",
+    "value": "your_api_token"
   }
 }
 ```
