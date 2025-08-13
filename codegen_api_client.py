@@ -64,7 +64,7 @@ class AgentRunResponse(BaseModel):
     result: Optional[str] = None
     source_type: str = "LOCAL"
     github_pull_requests: List[GithubPullRequest] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 class AgentRunsResponse(BaseModel):
     """Paginated list of agent runs."""
@@ -138,7 +138,7 @@ class AgentRunLogsResponse(BaseModel):
     created_at: str
     web_url: str
     result: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
     logs: List[AgentRunLog]
     total_logs: int
     page: int
@@ -512,4 +512,3 @@ class Agent:
             result=agent_run.result,
             web_url=agent_run.web_url
         )
-
