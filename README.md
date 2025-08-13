@@ -269,6 +269,35 @@ The MCP server supports orchestrator tracking, which allows you to create hierar
 
 This creates a new agent run that is a child of agent run 12345. When this run completes, the result will be automatically sent to the orchestrator.
 
+## Testing
+
+The MCP server can be tested using the provided test scripts:
+
+### Basic Testing
+
+```bash
+python test_mcp_server.py
+```
+
+This script tests all the commands and functionality of the MCP server, including:
+- Configuration management
+- Creating new agent runs
+- Resuming existing agent runs
+- Tracking task status
+- Orchestrator tracking
+
+### Testing with Real Credentials
+
+```bash
+python real_test.py
+```
+
+This script tests the MCP server with the provided real credentials:
+- CODEGEN_ORG_ID=323
+- CODEGEN_API_TOKEN=sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99
+
+The real test script demonstrates the actual functionality of the MCP server with the Codegen API, including orchestrator tracking and automatic notification between agents.
+
 ## License
 
 MIT
