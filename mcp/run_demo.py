@@ -4,7 +4,6 @@ Demo script to run the Codegen MCP Server with example commands
 """
 
 import json
-import os
 import subprocess
 import sys
 import time

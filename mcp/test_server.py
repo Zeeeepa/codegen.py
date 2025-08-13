@@ -3,7 +3,6 @@
 Test script for the Codegen MCP Server
 """
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -74,16 +73,23 @@ def test_dependencies():
     try:
         # Test MCP import
         try:
-            import mcp
-            print("✅ mcp library available")
+            import importlib.util
+            if importlib.util.find_spec("mcp"):
+                print("✅ mcp library available")
+            else:
+                print("❌ mcp library not available - run: uv add mcp")
+                return False
         except ImportError:
             print("❌ mcp library not available - run: uv add mcp")
             return False
         
         # Test requests import
         try:
-            import requests
-            print("✅ requests library available")
+            if importlib.util.find_spec("requests"):
+                print("✅ requests library available")
+            else:
+                print("❌ requests library not available")
+                return False
         except ImportError:
             print("❌ requests library not available")
             return False
@@ -91,8 +97,11 @@ def test_dependencies():
         # Test codegen_api import
         try:
             sys.path.insert(0, str(Path(__file__).parent.parent))
-            from codegen_api import Agent
-            print("✅ codegen_api available")
+            if importlib.util.find_spec("codegen_api"):
+                print("✅ codegen_api available")
+            else:
+                print("❌ codegen_api not available")
+                return False
         except ImportError as e:
             print(f"❌ codegen_api not available: {e}")
             return False

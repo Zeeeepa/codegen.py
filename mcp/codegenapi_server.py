@@ -13,26 +13,23 @@ import sys
 import time
 import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict
 
 # Add parent directory to path to import codegen_api
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import (
-    CallToolRequest,
-    CallToolResult,
-    ListToolsRequest,
+from mcp_types import (
+    CallToolResponse,
     ListToolsResult,
-    Tool,
     TextContent,
-    EmbeddedResource,
+    Tool,
 )
 
 # Import the codegen API
 try:
-    from codegen_api import Agent, CodegenAPIError, ClientConfig, Task
+    from codegen_api import Agent, Task
 except ImportError as e:
     print(f"Error importing codegen_api: {e}", file=sys.stderr)
     sys.exit(1)
@@ -233,7 +230,7 @@ class CodegenMCPServer:
                     Tool(
                         name="codegenapi_new",
                         description="Start a new agent run",
-                        inputSchema={
+                        parameters={
                             "type": "object",
                             "properties": {
                                 "repo": {
@@ -263,7 +260,7 @@ class CodegenMCPServer:
                                 "wait_for_completion": {
                                     "type": "boolean",
                                     "description": "Whether to wait for the run to complete before returning",
-                                    "default": false
+                                    "default": False
                                 }
                             },
                             "required": ["repo", "task", "query"]
@@ -272,7 +269,7 @@ class CodegenMCPServer:
                     Tool(
                         name="codegenapi_resume",
                         description="Resume an existing agent run",
-                        inputSchema={
+                        parameters={
                             "type": "object",
                             "properties": {
                                 "agent_run_id": {
@@ -290,7 +287,7 @@ class CodegenMCPServer:
                                 "wait_for_completion": {
                                     "type": "boolean",
                                     "description": "Whether to wait for the run to complete before returning",
-                                    "default": false
+                                    "default": False
                                 }
                             },
                             "required": ["agent_run_id", "query"]
@@ -299,7 +296,7 @@ class CodegenMCPServer:
                     Tool(
                         name="codegenapi_config",
                         description="Manage configuration settings",
-                        inputSchema={
+                        parameters={
                             "type": "object",
                             "properties": {
                                 "action": {
@@ -322,7 +319,7 @@ class CodegenMCPServer:
                     Tool(
                         name="codegenapi_list",
                         description="List agent runs",
-                        inputSchema={
+                        parameters={
                             "type": "object",
                             "properties": {
                                 "status": {
@@ -346,7 +343,7 @@ class CodegenMCPServer:
             )
         
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
+        async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResponse:
             try:
                 if name == "codegenapi_new":
                     return await self._handle_new(arguments)
@@ -357,15 +354,15 @@ class CodegenMCPServer:
                 elif name == "codegenapi_list":
                     return await self._handle_list(arguments)
                 else:
-                    return CallToolResult(
+                    return CallToolResponse(
                         content=[TextContent(type="text", text=f"Unknown tool: {name}")]
                     )
             except Exception as e:
-                return CallToolResult(
+                return CallToolResponse(
                     content=[TextContent(type="text", text=f"Error: {str(e)}")]
                 )
     
-    async def _handle_new(self, args: Dict[str, Any]) -> CallToolResult:
+    async def _handle_new(self, args: Dict[str, Any]) -> CallToolResponse:
         """Handle new agent run creation"""
         repo = args["repo"]
         branch = args.get("branch")
@@ -440,16 +437,16 @@ class CodegenMCPServer:
                     # Mark as completed
                     self._mark_run_completed(task_obj.id)
                 
-                return CallToolResult(
+                return CallToolResponse(
                     content=[TextContent(type="text", text=json.dumps(result, indent=2))]
                 )
         
         except Exception as e:
-            return CallToolResult(
+            return CallToolResponse(
                 content=[TextContent(type="text", text=f"Error creating agent run: {str(e)}")]
             )
     
-    async def _handle_resume(self, args: Dict[str, Any]) -> CallToolResult:
+    async def _handle_resume(self, args: Dict[str, Any]) -> CallToolResponse:
         """Handle resuming an agent run"""
         agent_run_id = args["agent_run_id"]
         task = args.get("task")
@@ -504,16 +501,16 @@ class CodegenMCPServer:
                     # Mark as completed
                     self._mark_run_completed(agent_run_id)
                 
-                return CallToolResult(
+                return CallToolResponse(
                     content=[TextContent(type="text", text=json.dumps(result, indent=2))]
                 )
         
         except Exception as e:
-            return CallToolResult(
+            return CallToolResponse(
                 content=[TextContent(type="text", text=f"Error resuming agent run: {str(e)}")]
             )
     
-    async def _handle_config(self, args: Dict[str, Any]) -> CallToolResult:
+    async def _handle_config(self, args: Dict[str, Any]) -> CallToolResponse:
         """Handle configuration management"""
         action = args["action"]
         
@@ -522,7 +519,7 @@ class CodegenMCPServer:
             value = args.get("value")
             
             if not key or not value:
-                return CallToolResult(
+                return CallToolResponse(
                     content=[TextContent(type="text", text="Error: Both 'key' and 'value' are required for set action")]
                 )
             
@@ -533,21 +530,21 @@ class CodegenMCPServer:
                 try:
                     value = int(value)
                 except ValueError:
-                    return CallToolResult(
+                    return CallToolResponse(
                         content=[TextContent(type="text", text="Error: org_id must be a number")]
                     )
             
             self.config[key] = value
             self._save_config(self.config)
             
-            return CallToolResult(
+            return CallToolResponse(
                 content=[TextContent(type="text", text=f"Set {key} = {value}")]
             )
         
         elif action == "get":
             key = args.get("key")
             if not key:
-                return CallToolResult(
+                return CallToolResponse(
                     content=[TextContent(type="text", text="Error: 'key' is required for get action")]
                 )
             
@@ -560,7 +557,7 @@ class CodegenMCPServer:
             if key == "api_token" and value != "Not set":
                 value = f"{value[:8]}...{value[-4:]}"
             
-            return CallToolResult(
+            return CallToolResponse(
                 content=[TextContent(type="text", text=f"{key} = {value}")]
             )
         
@@ -572,16 +569,16 @@ class CodegenMCPServer:
                 else:
                     config_display[key] = value
             
-            return CallToolResult(
+            return CallToolResponse(
                 content=[TextContent(type="text", text=json.dumps(config_display, indent=2))]
             )
         
         else:
-            return CallToolResult(
+            return CallToolResponse(
                 content=[TextContent(type="text", text=f"Unknown config action: {action}")]
             )
     
-    async def _handle_list(self, args: Dict[str, Any]) -> CallToolResult:
+    async def _handle_list(self, args: Dict[str, Any]) -> CallToolResponse:
         """Handle listing agent runs"""
         status_filter = args.get("status")
         limit = args.get("limit", 10)
@@ -607,7 +604,7 @@ class CodegenMCPServer:
                             if isinstance(metadata, str):
                                 try:
                                     metadata = json.loads(metadata)
-                                except:
+                                except Exception:
                                     pass
                             
                             if isinstance(metadata, dict):
@@ -615,7 +612,7 @@ class CodegenMCPServer:
                                 task_info["task_type"] = metadata.get("task_type")
                                 task_info["branch"] = metadata.get("branch")
                                 task_info["pr"] = metadata.get("pr")
-                    except:
+                    except Exception:
                         pass
                     
                     # Apply filters
@@ -626,12 +623,12 @@ class CodegenMCPServer:
                     
                     results.append(task_info)
                 
-                return CallToolResult(
+                return CallToolResponse(
                     content=[TextContent(type="text", text=json.dumps(results, indent=2))]
                 )
         
         except Exception as e:
-            return CallToolResult(
+            return CallToolResponse(
                 content=[TextContent(type="text", text=f"Error listing agent runs: {str(e)}")]
             )
 

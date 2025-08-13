@@ -5,10 +5,7 @@ Test script to run commands against the Codegen MCP Server
 
 import asyncio
 import json
-import os
-import subprocess
 import sys
-import time
 from pathlib import Path
 
 # MCP client for testing
@@ -41,7 +38,8 @@ async def run_mcp_command(server_process, command, args):
     content_length = int(header.decode().strip().split(": ")[1])
     await server_process.stdout.readline()  # Empty line
     response_data = await server_process.stdout.read(content_length)
-    response = json.loads(response_data.decode())
+    # Parse response but we don't need to use it
+    _ = json.loads(response_data.decode())
     
     # List tools
     list_tools_request = {
@@ -63,7 +61,8 @@ async def run_mcp_command(server_process, command, args):
     content_length = int(header.decode().strip().split(": ")[1])
     await server_process.stdout.readline()  # Empty line
     response_data = await server_process.stdout.read(content_length)
-    tools_response = json.loads(response_data.decode())
+    # Parse response but we don't need to use it
+    _ = json.loads(response_data.decode())
     
     # Call the tool
     call_tool_request = {
@@ -145,8 +144,8 @@ async def main():
             result_text = new_response.get("result", {}).get("content", [{}])[0].get("text", "{}")
             result_json = json.loads(result_text)
             agent_run_id = result_json.get("agent_run_id")
-        except:
-            print("Could not extract agent_run_id from response")
+        except Exception as e:
+            print(f"Could not extract agent_run_id from response: {e}")
         
         if agent_run_id:
             # Test resume command

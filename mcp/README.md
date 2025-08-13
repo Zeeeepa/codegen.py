@@ -4,21 +4,27 @@ A Model Context Protocol (MCP) server that provides access to Codegen API functi
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### 1. Install from Source
 
 ```bash
-cd mcp
-uv sync
+git clone https://github.com/Zeeeepa/codegen.py.git
+cd codegen.py
+pip install -e .
 ```
 
 ### 2. Configure API Token
 
 ```bash
-# Set your API token
-codegenapi config set api-token YOUR_TOKEN
+# Interactive setup
+codegen config init
 
-# Optionally set organization ID
-codegenapi config set org_id YOUR_ORG_ID
+# Manual configuration
+codegen config set api-token YOUR_TOKEN
+codegen config set org-id YOUR_ORG_ID
+codegen config set api.base-url https://api.codegen.com  # Optional
+
+# Verify setup
+codegen config validate
 ```
 
 ### 3. Run the Server
@@ -52,7 +58,7 @@ Create a new agent run with repository context.
 - `branch` (optional): Branch name
 - `pr` (optional): PR number
 
-**Example:**
+**Example JSON:**
 ```json
 {
   "repo": "Zeeeepa/codegen.py",
@@ -60,6 +66,24 @@ Create a new agent run with repository context.
   "query": "Create a comprehensive plan to properly structure codebase",
   "branch": "codegen-bot/code-quality-analysis-plan-1754927688"
 }
+```
+
+**CLI Command Examples:**
+```bash
+# Basic syntax
+codegenapi new --repo <URL> --task <TYPE> --query "<DESCRIPTION>"
+
+# With branch targeting
+codegenapi new --repo <URL> --branch <BRANCH> --task <TYPE> --query "<DESCRIPTION>"
+
+# With PR targeting
+codegenapi new --repo <URL> --pr <NUMBER> --task <TYPE> --query "<DESCRIPTION>"
+
+# With wait for completion
+codegenapi new --repo <URL> --task <TYPE> --query "<DESCRIPTION>" --wait-for-completion
+
+# With parent ID for orchestration
+codegenapi new --repo <URL> --task <TYPE> --query "<DESCRIPTION>" --parent-id <ID>
 ```
 
 ### `codegenapi_resume` - Resume Agent Run
@@ -71,13 +95,28 @@ Resume an existing agent run with additional instructions.
 - `query` (required): Additional instructions
 - `task` (optional): Task type for the resume operation
 
-**Example:**
+**Example JSON:**
 ```json
 {
   "agent_run_id": 11745,
   "query": "analyze frontend of the codebase",
   "task": "ANALYZE"
 }
+```
+
+**CLI Command Examples:**
+```bash
+# Basic syntax
+codegenapi resume --task-id <ID> --message "<MESSAGE>"
+
+# With wait for completion
+codegenapi resume --task-id <ID> --message "<MESSAGE>" --wait-for-completion
+
+# With task type
+codegenapi resume --task-id <ID> --message "<MESSAGE>" --task <TYPE>
+
+# Complete example
+codegenapi resume --task-id 12345 --message "Please also include error handling" --wait-for-completion
 ```
 
 ### `codegenapi_config` - Manage Configuration
@@ -89,7 +128,7 @@ Manage configuration settings for the API client.
 - `key` (required for set/get): Configuration key
 - `value` (required for set): Configuration value
 
-**Examples:**
+**Example JSON:**
 ```json
 // Set API token
 {
@@ -110,6 +149,26 @@ Manage configuration settings for the API client.
 }
 ```
 
+**CLI Command Examples:**
+```bash
+# Interactive setup
+codegen config init
+
+# Set configuration values
+codegen config set api-token YOUR_TOKEN
+codegen config set org-id YOUR_ORG_ID
+codegen config set api.base-url https://api.codegen.com
+
+# Get configuration value
+codegen config get api-token
+
+# List all configuration
+codegen config list
+
+# Validate configuration
+codegen config validate
+```
+
 ### `codegenapi_list` - List Agent Runs
 
 List recent agent runs with optional filtering.
@@ -119,13 +178,28 @@ List recent agent runs with optional filtering.
 - `limit` (optional): Number of runs to return (default: 10)
 - `repo` (optional): Filter by repository
 
-**Example:**
+**Example JSON:**
 ```json
 {
   "status": "running",
   "limit": 20,
   "repo": "user/repo"
 }
+```
+
+**CLI Command Examples:**
+```bash
+# List all recent tasks
+codegenapi list
+
+# Filter by status
+codegenapi list --status running --limit 20
+
+# Filter by repository
+codegenapi list --repo https://github.com/user/repo
+
+# Combined filters
+codegenapi list --status completed --repo https://github.com/user/repo --limit 50
 ```
 
 ## 🔧 Configuration

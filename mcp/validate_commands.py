@@ -45,7 +45,7 @@ def run_command(command, input_data=None):
             print(f"Error: {stderr}")
             return None
         
-        print(f"✅ Command completed successfully")
+        print("✅ Command completed successfully")
         return stdout
     except Exception as e:
         print(f"❌ Exception running command: {e}")

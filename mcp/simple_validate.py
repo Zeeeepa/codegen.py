@@ -5,7 +5,6 @@ Simple validation script for the MCP server
 
 import json
 import os
-import sys
 from pathlib import Path
 
 def main():
