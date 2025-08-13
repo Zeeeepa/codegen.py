@@ -1,49 +1,41 @@
-#!/usr/bin/env python3
 """
-Type definitions for the Codegen MCP Server
+MCP Types for Codegen API
+
+This module defines the data types used by the MCP server for the Codegen API.
 """
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Any, Union
 
 
 class ContentType(str, Enum):
-    """Content type for MCP responses"""
+    """Content type for tool responses"""
     TEXT = "text"
     IMAGE = "image"
-    AUDIO = "audio"
-    VIDEO = "video"
     FILE = "file"
 
 
 @dataclass
 class TextContent:
-    """Text content for MCP responses"""
+    """Text content for tool responses"""
     text: str
     type: str = ContentType.TEXT
-    annotations: Optional[Dict[str, Any]] = None
-    meta: Optional[Dict[str, Any]] = None
 
 
 @dataclass
 class ImageContent:
-    """Image content for MCP responses"""
+    """Image content for tool responses"""
     url: str
     type: str = ContentType.IMAGE
-    alt_text: Optional[str] = None
-    annotations: Optional[Dict[str, Any]] = None
-    meta: Optional[Dict[str, Any]] = None
 
 
 @dataclass
 class FileContent:
-    """File content for MCP responses"""
-    url: str
+    """File content for tool responses"""
+    name: str
+    content: bytes
     type: str = ContentType.FILE
-    filename: Optional[str] = None
-    annotations: Optional[Dict[str, Any]] = None
-    meta: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -51,26 +43,24 @@ class Tool:
     """Tool definition for MCP"""
     name: str
     description: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    returns: Optional[Dict[str, Any]] = None
-    annotations: Optional[Dict[str, Any]] = None
+    parameters: Dict[str, Any]
 
 
 @dataclass
 class ListToolsResult:
     """Result of listing tools"""
     tools: List[Tool]
-    cursor: Optional[str] = None
-
-
-@dataclass
-class CallToolResponse:
-    """Response from a tool call"""
-    content: List[Union[TextContent, ImageContent, FileContent]]
 
 
 @dataclass
 class CallToolRequest:
     """Request to call a tool"""
     name: str
-    arguments: Dict[str, Any]
+    parameters: Dict[str, Any]
+
+
+@dataclass
+class CallToolResponse:
+    """Response from calling a tool"""
+    content: List[Union[TextContent, ImageContent, FileContent]] = field(default_factory=list)
+
