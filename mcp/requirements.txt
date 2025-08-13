@@ -1,0 +1,5 @@
+requests>=2.25.0
+# Optional dependencies
+# mcp>=0.1.0  # For MCP protocol support
+# aiohttp>=3.7.0  # For async support
+
