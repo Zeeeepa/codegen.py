@@ -18,18 +18,18 @@
         "repo": "Zeeeepa/codegen.py",
         "task": "ANALYZE",
         "query": "Analyze the authentication module",
-        "parent_id": 12345  // Replace with actual orchestrator ID
+        "parent_id": 12345
       }
     },
     {
       "title": "Create multiple child agents",
       "description": "Create multiple child agents in parallel, all reporting to the same orchestrator",
       "code": [
-        "// JavaScript example of creating multiple child agents",
-        "const orchestratorId = 12345;  // Replace with actual ID",
+        "JavaScript example of creating multiple child agents",
+        "const orchestratorId = 12345;",
         "const modules = ['auth', 'database', 'api', 'frontend'];",
         "",
-        "// Create a child agent for each module",
+        "Create a child agent for each module",
         "const childPromises = modules.map(module => {",
         "  return callTool('codegenapi_new', {",
         "    repo: 'Zeeeepa/codegen.py',",
@@ -39,7 +39,7 @@
         "  });",
         "});",
         "",
-        "// Wait for all child agents to be created",
+        "Wait for all child agents to be created",
         "Promise.all(childPromises).then(results => {",
         "  console.log(`Created ${results.length} child agents`);",
         "});"
@@ -58,4 +58,3 @@
     }
   ]
 }
-
