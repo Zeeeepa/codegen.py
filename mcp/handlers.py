@@ -9,9 +9,9 @@ import sys
 import json
 from typing import Dict, Any, Optional, List, Tuple
 
-# Add parent directory to path to import codegen_api
+# Add parent directory to path to import codegen_api_client
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from codegen_api import Agent, CodegenClient, ClientConfig, AgentRunStatus
+from codegen_api_client import Agent, CodegenClient, ClientConfig, AgentRunStatus, SourceType
 
 from .config import get_api_token, get_org_id, get_base_url, set_config_value
 from .task_manager import get_task_manager, TaskInfo
@@ -101,16 +101,21 @@ def handle_new_command(args: Dict[str, Any]) -> Dict[str, Any]:
     
     prompt = "\n".join(prompt_parts)
     
+    # Build metadata
+    metadata = {
+        "repo": args.get("repo"),
+        "branch": args.get("branch"),
+        "pr": args.get("pr"),
+        "task_type": args.get("task")
+    }
+    
     # Run task asynchronously
     task_manager.run_agent_task(
         task_id=task_id,
         api_token=api_token,
         org_id=org_id,
         prompt=prompt,
-        repo=args.get("repo"),
-        branch=args.get("branch"),
-        pr=args.get("pr"),
-        task_type=args.get("task"),
+        metadata=metadata,
         orchestrator_run_id=orchestrator_run_id
     )
     
@@ -212,6 +217,11 @@ def handle_resume_command(args: Dict[str, Any]) -> Dict[str, Any]:
     
     prompt = "\n".join(prompt_parts)
     
+    # Build metadata
+    metadata = {
+        "task_type": args.get("task")
+    }
+    
     # Run task asynchronously
     task_manager.resume_agent_task(
         task_id=task_id,
@@ -219,7 +229,7 @@ def handle_resume_command(args: Dict[str, Any]) -> Dict[str, Any]:
         org_id=org_id,
         agent_run_id=int(args["agent_run_id"]),
         prompt=prompt,
-        task_type=args.get("task"),
+        metadata=metadata,
         orchestrator_run_id=orchestrator_run_id
     )
     
@@ -376,7 +386,7 @@ def handle_list_command(args: Dict[str, Any]) -> Dict[str, Any]:
         client = CodegenClient(config)
         
         # Get agent runs
-        runs = client.list_agent_runs(int(org_id), limit=limit)
+        runs = client.list_agent_runs(limit=limit)
         
         # Filter by status if provided
         if status:
@@ -463,3 +473,4 @@ def handle_task_status_command(args: Dict[str, Any]) -> Dict[str, Any]:
         "web_url": task_info.web_url,
         "metadata": task_info.metadata
     }
+

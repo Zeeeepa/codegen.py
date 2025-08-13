@@ -1,158 +1,152 @@
 #!/usr/bin/env python3
 """
-Real test script for the Codegen MCP Server.
+Real Test Script for Codegen API Client
 
-This script tests the MCP server with the provided real credentials.
+This script tests the Codegen API client with real credentials.
 """
 
 import os
 import sys
-import json
 import time
-import argparse
-import requests
-from typing import Dict, Any, Optional
+import json
+import logging
+from typing import Dict, Any, Optional, List
 
-# Set real credentials
-REAL_API_TOKEN = "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
-REAL_ORG_ID = "323"
+from codegen_api_client import CodegenClient, ClientConfig, Agent, AgentRunStatus, SourceType
 
-def send_request(url: str, command: str, args: Dict[str, Any]) -> Dict[str, Any]:
-    """Send a request to the MCP server."""
-    payload = {
-        "command": command,
-        "args": args
-    }
-    
-    print(f"\nSending request: {json.dumps(payload, indent=2)}")
-    response = requests.post(url, json=payload)
-    return response.json()
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-def test_with_real_credentials(url: str) -> None:
-    """Test the MCP server with real credentials."""
-    print("\n=== Testing with real credentials ===")
+# Test credentials
+API_TOKEN = "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
+ORG_ID = "323"
+BASE_URL = "https://api.codegen.com/v1"
+
+def test_api_client():
+    """Test the Codegen API client with real credentials."""
+    logger.info("Testing Codegen API client with real credentials")
     
-    # Set API token
-    print("\nSetting API token...")
-    response = send_request(url, "config", {
-        "action": "set",
-        "key": "api_token",
-        "value": REAL_API_TOKEN
-    })
-    print(f"Response: {json.dumps(response, indent=2)}")
+    # Initialize client
+    config = ClientConfig(
+        api_token=API_TOKEN,
+        org_id=ORG_ID,
+        base_url=BASE_URL
+    )
+    client = CodegenClient(config)
     
-    # Set org ID
-    print("\nSetting org ID...")
-    response = send_request(url, "config", {
-        "action": "set",
-        "key": "org_id",
-        "value": REAL_ORG_ID
-    })
-    print(f"Response: {json.dumps(response, indent=2)}")
-    
-    # Create a new agent run
-    print("\nCreating new agent run...")
-    response = send_request(url, "new", {
-        "repo": "Zeeeepa/codegen.py",
-        "task": "TEST",
-        "query": "This is a test agent run using real credentials"
-    })
-    print(f"Response: {json.dumps(response, indent=2)}")
-    
-    if response.get("status") != "success" or not response.get("task_id"):
-        print("❌ Failed to create new agent run")
-        return
-    
-    task_id = response["task_id"]
-    agent_run_id = response["agent_run_id"]
-    
-    # Check task status
-    print(f"\nChecking status of task {task_id}...")
-    response = send_request(url, "task_status", {
-        "task_id": task_id
-    })
-    print(f"Response: {json.dumps(response, indent=2)}")
-    
-    # Create orchestrator agent run
-    print("\nCreating orchestrator agent run...")
-    orchestrator_response = send_request(url, "new", {
-        "repo": "Zeeeepa/codegen.py",
-        "task": "ORCHESTRATOR",
-        "query": "This is an orchestrator agent run using real credentials"
-    })
-    print(f"Response: {json.dumps(orchestrator_response, indent=2)}")
-    
-    if orchestrator_response.get("status") != "success" or not orchestrator_response.get("task_id"):
-        print("❌ Failed to create orchestrator agent run")
-        return
-    
-    orchestrator_task_id = orchestrator_response["task_id"]
-    orchestrator_run_id = orchestrator_response["agent_run_id"]
-    
-    # Create child agent run with orchestrator ID
-    print("\nCreating child agent run with orchestrator ID...")
-    child_response = send_request(url, "new", {
-        "repo": "Zeeeepa/codegen.py",
-        "task": "CHILD",
-        "query": "This is a child agent run using real credentials",
-        "orchestrator_run_id": orchestrator_run_id
-    })
-    print(f"Response: {json.dumps(child_response, indent=2)}")
-    
-    if child_response.get("status") != "success" or not child_response.get("task_id"):
-        print("❌ Failed to create child agent run")
-        return
-    
-    child_task_id = child_response["task_id"]
-    
-    # Check that orchestrator_run_id is included in the response
-    if child_response.get("orchestrator_run_id") != orchestrator_run_id:
-        print("❌ Orchestrator run ID not included in response")
-    else:
-        print("✅ Orchestrator run ID included in response")
-    
-    # List agent runs
-    print("\nListing agent runs...")
-    response = send_request(url, "list", {
-        "limit": 5
-    })
-    print(f"Response: {json.dumps(response, indent=2)}")
-    
-    # Resume agent run
-    print("\nResuming agent run...")
-    response = send_request(url, "resume", {
-        "agent_run_id": agent_run_id,
-        "task": "ANALYZE",
-        "query": "Analyze the codebase using real credentials",
-        "orchestrator_run_id": orchestrator_run_id
-    })
-    print(f"Response: {json.dumps(response, indent=2)}")
-    
-    if response.get("status") != "success":
-        print("❌ Failed to resume agent run")
-    else:
-        print("✅ Agent run resumed successfully")
+    # Test Users endpoints
+    logger.info("Testing Users endpoints")
+    try:
+        # Get users
+        users = client.get_users(limit=5)
+        logger.info(f"Got {len(users.items)} users")
         
-        # Check that orchestrator_run_id is included in the response
-        if response.get("orchestrator_run_id") != orchestrator_run_id:
-            print("❌ Orchestrator run ID not included in response")
-        else:
-            print("✅ Orchestrator run ID included in response")
+        # Get current user
+        current_user = client.get_current_user()
+        logger.info(f"Current user: {current_user.email}")
+        
+        # Get user by ID
+        if users.items:
+            user = client.get_user(users.items[0].id)
+            logger.info(f"Got user: {user.email}")
+    except Exception as e:
+        logger.error(f"Error testing Users endpoints: {e}")
     
-    print("\n=== Test completed ===")
+    # Test Organizations endpoint
+    logger.info("Testing Organizations endpoint")
+    try:
+        orgs = client.get_organizations(limit=5)
+        logger.info(f"Got {len(orgs.items)} organizations")
+    except Exception as e:
+        logger.error(f"Error testing Organizations endpoint: {e}")
+    
+    # Test Agents endpoints
+    logger.info("Testing Agents endpoints")
+    try:
+        # Create agent run
+        agent_run = client.create_agent_run(
+            prompt="Test agent run from real_test.py",
+            metadata={"test": True, "source": "real_test.py"}
+        )
+        logger.info(f"Created agent run: {agent_run.id}")
+        
+        # Get agent run
+        run = client.get_agent_run(agent_run.id)
+        logger.info(f"Got agent run: {run.id}, status: {run.status}")
+        
+        # List agent runs
+        runs = client.list_agent_runs(limit=5)
+        logger.info(f"Got {len(runs.items)} agent runs")
+        
+        # Resume agent run
+        resumed_run = client.resume_agent_run(
+            agent_run_id=agent_run.id,
+            prompt="Resuming test agent run from real_test.py",
+            metadata={"test": True, "source": "real_test.py", "resumed": True}
+        )
+        logger.info(f"Resumed agent run: {resumed_run.id}")
+        
+        # Get agent run logs
+        try:
+            logs = client.get_agent_run_logs(agent_run.id, limit=5)
+            logger.info(f"Got {len(logs.logs)} logs for agent run {agent_run.id}")
+        except Exception as e:
+            logger.error(f"Error getting agent run logs: {e}")
+    except Exception as e:
+        logger.error(f"Error testing Agents endpoints: {e}")
+
+def test_orchestrator_tracking():
+    """Test orchestrator tracking functionality."""
+    logger.info("Testing orchestrator tracking")
+    
+    # Initialize agent
+    agent = Agent(org_id=ORG_ID, token=API_TOKEN, base_url=BASE_URL)
+    
+    # Create orchestrator run
+    orchestrator_run = agent.run(
+        prompt="Orchestrator run from real_test.py",
+        metadata={"test": True, "source": "real_test.py", "role": "orchestrator"}
+    )
+    logger.info(f"Created orchestrator run: {orchestrator_run.id}")
+    
+    # Create child run
+    child_run = agent.run(
+        prompt=f"Child run from real_test.py, orchestrator: {orchestrator_run.id}",
+        metadata={
+            "test": True, 
+            "source": "real_test.py", 
+            "role": "child",
+            "orchestrator_run_id": orchestrator_run.id
+        }
+    )
+    logger.info(f"Created child run: {child_run.id}")
+    
+    # Wait for child run to complete
+    logger.info(f"Waiting for child run {child_run.id} to complete")
+    try:
+        child_run.wait_for_completion(timeout=60)
+        logger.info(f"Child run {child_run.id} completed")
+    except TimeoutError:
+        logger.warning(f"Child run {child_run.id} did not complete within timeout")
+    
+    # Check if orchestrator was notified
+    orchestrator_run.refresh()
+    logger.info(f"Orchestrator run {orchestrator_run.id} status: {orchestrator_run.status}")
+    
+    # Resume orchestrator with result
+    orchestrator_run.resume(f"Result from child run {child_run.id}")
+    logger.info(f"Resumed orchestrator run {orchestrator_run.id}")
 
 def main():
     """Main function."""
-    parser = argparse.ArgumentParser(description="Test the Codegen MCP Server with real credentials")
-    parser.add_argument("--url", default="http://localhost:8080", help="MCP server URL")
-    args = parser.parse_args()
+    # Test API client
+    test_api_client()
     
-    url = args.url
+    # Test orchestrator tracking
+    test_orchestrator_tracking()
     
-    print(f"Testing MCP server at {url}")
-    print(f"Using real credentials: API token: {REAL_API_TOKEN}, Org ID: {REAL_ORG_ID}")
-    
-    test_with_real_credentials(url)
+    logger.info("All tests completed")
 
 if __name__ == "__main__":
     main()

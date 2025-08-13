@@ -182,6 +182,41 @@ def test_list_command(url: str) -> bool:
     print("\n✅ List command test passed")
     return True
 
+def test_resume_command(url: str) -> bool:
+    """Test the resume command."""
+    print("\n=== Testing resume command ===")
+    
+    # Create a new agent run first
+    print("Creating new agent run for resume test...")
+    response = send_request(url, "new", {
+        "repo": "Zeeeepa/codegen.py",
+        "task": "RESUME_TEST",
+        "query": "This is a test agent run for resume test"
+    })
+    print(f"Response: {json.dumps(response, indent=2)}")
+    
+    if response.get("status") != "success" or not response.get("agent_run_id"):
+        print("❌ Failed to create new agent run for resume test")
+        return False
+    
+    agent_run_id = response["agent_run_id"]
+    
+    # Resume the agent run
+    print(f"\nResuming agent run {agent_run_id}...")
+    resume_response = send_request(url, "resume", {
+        "agent_run_id": agent_run_id,
+        "task": "RESUMED",
+        "query": "This is a resumed agent run"
+    })
+    print(f"Response: {json.dumps(resume_response, indent=2)}")
+    
+    if resume_response.get("status") != "success":
+        print("❌ Failed to resume agent run")
+        return False
+    
+    print("\n✅ Resume command test passed")
+    return True
+
 def main():
     """Main function."""
     parser = argparse.ArgumentParser(description="Test the Codegen MCP Server")
@@ -217,6 +252,11 @@ def main():
     # Test list command
     if not test_list_command(url):
         print("\n❌ List command test failed")
+        return
+    
+    # Test resume command
+    if not test_resume_command(url):
+        print("\n❌ Resume command test failed")
         return
     
     print("\n✅ All tests passed!")

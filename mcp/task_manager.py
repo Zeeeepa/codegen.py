@@ -15,9 +15,9 @@ from pathlib import Path
 from datetime import datetime
 import logging
 
-# Add parent directory to path to import codegen_api
+# Add parent directory to path to import codegen_api_client
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from codegen_api import Agent, Task, AgentRunStatus
+from codegen_api_client import Agent, CodegenClient, ClientConfig, AgentRunStatus
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -234,51 +234,37 @@ class TaskManager:
                 logger.info(f"Orchestrator {orchestrator_run_id} is still running. Result from {child_task_id}: {result[:100]}...")
                 
                 # Future enhancement: Send result directly to orchestrator
-                # This would require a new API endpoint or mechanism
+                # This would require a new API endpoint or websocket connection
             else:
                 # Orchestrator is not running, resume it with the result
                 logger.info(f"Resuming orchestrator {orchestrator_run_id} with result from {child_task_id}")
                 
-                # Create a formatted message
+                # Build prompt for orchestrator
+                prompt_parts = []
+                
                 if is_error:
-                    message = f"Error from task {child_task_id}"
-                    if child_run_id:
-                        message += f" (run {child_run_id})"
-                    message += f": {result}"
+                    prompt_parts.append(f"Error from child task {child_task_id}:")
                 else:
-                    message = f"Result from task {child_task_id}"
-                    if child_run_id:
-                        message += f" (run {child_run_id})"
-                    message += f": {result}"
+                    prompt_parts.append(f"Result from child task {child_task_id}:")
                 
-                # Create a new task for resuming the orchestrator
-                resume_task_id = self.create_task(metadata={
-                    "command": "resume",
-                    "orchestrator_run_id": orchestrator_run_id,
-                    "child_task_id": child_task_id,
-                    "child_run_id": child_run_id
-                })
+                if child_run_id:
+                    prompt_parts.append(f"Child run ID: {child_run_id}")
                 
-                # Resume the orchestrator
-                self.resume_agent_task(
-                    task_id=resume_task_id,
-                    api_token=api_token,
-                    org_id=org_id,
-                    agent_run_id=orchestrator_run_id,
-                    prompt=message
-                )
+                prompt_parts.append(result)
+                
+                prompt = "\n\n".join(prompt_parts)
+                
+                # Resume orchestrator
+                orchestrator_task.resume(prompt)
         except Exception as e:
             logger.error(f"Error handling orchestrator notification: {e}")
     
-    def run_agent_task(self, 
-                      task_id: str, 
+    def run_agent_task(self,
+                      task_id: str,
                       api_token: str,
                       org_id: str,
                       prompt: str,
-                      repo: Optional[str] = None,
-                      branch: Optional[str] = None,
-                      pr: Optional[int] = None,
-                      task_type: Optional[str] = None,
+                      metadata: Optional[Dict[str, Any]] = None,
                       timeout: int = 3600,
                       orchestrator_run_id: Optional[int] = None) -> None:
         """Run an agent task asynchronously.
@@ -288,10 +274,7 @@ class TaskManager:
             api_token: API token
             org_id: Organization ID
             prompt: Task prompt
-            repo: Repository name (optional)
-            branch: Branch name (optional)
-            pr: PR number (optional)
-            task_type: Task type (optional)
+            metadata: Task metadata (optional)
             timeout: Timeout in seconds (default: 3600)
             orchestrator_run_id: ID of the orchestrator agent run (optional)
         """
@@ -300,23 +283,11 @@ class TaskManager:
                 # Update task status to running
                 self.update_task(task_id, status="running")
                 
-                # Create metadata
-                metadata = {
-                    "repo": repo,
-                    "branch": branch,
-                    "pr": pr,
-                    "task_type": task_type,
-                    "orchestrator_run_id": orchestrator_run_id
-                }
-                
-                # Filter out None values
-                metadata = {k: v for k, v in metadata.items() if v is not None}
-                
                 # Initialize agent
                 agent = Agent(org_id=org_id, token=api_token)
                 
-                # Run agent
-                agent_task = agent.run(prompt=prompt, metadata=metadata)
+                # Run task
+                agent_task = agent.run(prompt, metadata=metadata)
                 
                 # Update task with agent run ID
                 self.update_task(
@@ -418,7 +389,7 @@ class TaskManager:
                          org_id: str,
                          agent_run_id: int,
                          prompt: str,
-                         task_type: Optional[str] = None,
+                         metadata: Optional[Dict[str, Any]] = None,
                          timeout: int = 3600,
                          orchestrator_run_id: Optional[int] = None) -> None:
         """Resume an agent task asynchronously.
@@ -429,7 +400,7 @@ class TaskManager:
             org_id: Organization ID
             agent_run_id: Agent run ID to resume
             prompt: Task prompt
-            task_type: Task type (optional)
+            metadata: Task metadata (optional)
             timeout: Timeout in seconds (default: 3600)
             orchestrator_run_id: ID of the orchestrator agent run (optional)
         """

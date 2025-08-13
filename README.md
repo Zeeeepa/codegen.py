@@ -269,6 +269,88 @@ The MCP server supports orchestrator tracking, which allows you to create hierar
 
 This creates a new agent run that is a child of agent run 12345. When this run completes, the result will be automatically sent to the orchestrator.
 
+## Codegen API Client
+
+The package includes a comprehensive Codegen API client that implements all 9 endpoints of the Codegen API:
+
+### Users Endpoints
+
+1. **Get Users** - `GET /v1/organizations/{org_id}/users`
+   - List all users in an organization
+   - Supports pagination with skip and limit parameters
+
+2. **Get User** - `GET /v1/organizations/{org_id}/user/{user_id}`
+   - Get details for a specific user in an organization
+
+3. **Get Current User Info** - `GET /v1/organizations/{org_id}/user/current`
+   - Get information about the current authenticated user
+
+### Agents Endpoints
+
+4. **Create Agent Run** - `POST /v1/organizations/{org_id}/agent/run`
+   - Create a new agent run with a prompt and optional metadata
+   - Returns the agent run details including ID and web URL
+
+5. **Get Agent Run** - `GET /v1/organizations/{org_id}/agent/run/{agent_run_id}`
+   - Get details for a specific agent run
+   - Includes status, result, and other metadata
+
+6. **List Agent Runs** - `GET /v1/organizations/{org_id}/agent/runs`
+   - List agent runs for an organization
+   - Supports filtering by user ID and source type
+   - Supports pagination with skip and limit parameters
+
+7. **Resume Agent Run** - `POST /v1/organizations/{org_id}/agent/run/{agent_run_id}/resume`
+   - Resume a paused agent run with additional instructions
+
+### Organizations Endpoints
+
+8. **Get Organizations** - `GET /v1/organizations`
+   - List all organizations the user has access to
+   - Supports pagination with skip and limit parameters
+
+### Agents-Alpha Endpoints
+
+9. **Get Agent Run Logs** - `GET /v1/organizations/{org_id}/agent/run/{agent_run_id}/logs`
+   - Get logs for a specific agent run
+   - Includes tool calls, thoughts, and observations
+   - Supports pagination with skip and limit parameters
+
+### Using the API Client
+
+```python
+from codegen_api_client import CodegenClient, ClientConfig
+
+# Initialize client
+config = ClientConfig(
+    api_token="your_api_token",
+    org_id="your_org_id",
+    base_url="https://api.codegen.com/v1"
+)
+client = CodegenClient(config)
+
+# Create a new agent run
+agent_run = client.create_agent_run(
+    prompt="Create a comprehensive plan to properly structure codebase",
+    metadata={"repo": "Zeeeepa/codegen.py", "task_type": "CREATE_PLAN"}
+)
+
+# Get agent run details
+agent_run = client.get_agent_run(agent_run.id)
+
+# List agent runs
+runs = client.list_agent_runs(limit=10)
+
+# Get users
+users = client.get_users(limit=10)
+
+# Get organizations
+orgs = client.get_organizations(limit=10)
+
+# Get agent run logs
+logs = client.get_agent_run_logs(agent_run.id, limit=10)
+```
+
 ## Testing
 
 The MCP server can be tested using the provided test scripts:
@@ -301,3 +383,4 @@ The real test script demonstrates the actual functionality of the MCP server wit
 ## License
 
 MIT
+

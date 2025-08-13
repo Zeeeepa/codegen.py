@@ -13,13 +13,16 @@ setup(
     author_email="info@codegen.com",
     url="https://github.com/Zeeeepa/codegen.py",
     packages=find_packages(),
+    py_modules=["codegen_api_client"],
     install_requires=[
         "requests>=2.25.0",
         "aiohttp>=3.7.4",
+        "pydantic>=1.8.0",
     ],
     entry_points={
         "console_scripts": [
             "codegen-mcp=mcp.server:main",
+            "codegenapi=mcp.server:main",
         ],
     },
     classifiers=[
