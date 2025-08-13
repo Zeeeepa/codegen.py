@@ -235,12 +235,22 @@ class CodegenClient:
         task: Optional[str] = None,
         images: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """Resume a paused agent run"""
+        """
+        Resume a paused agent run
+        
+        Note: This can only be used if the agent run status is "COMPLETE".
+        If the status is "ACTIVE", resume is not available.
+        """
         org_id = org_id or self.org_id
         if not org_id:
             raise ValidationError("Organization ID is required")
         if not agent_run_id:
             raise ValidationError("Agent run ID is required")
+        
+        # First check if the agent run is in a state that can be resumed
+        agent_run = self.get_agent_run(agent_run_id, org_id)
+        if agent_run.get("status") == "ACTIVE":
+            raise ValidationError("Cannot resume an active agent run. The run must be in COMPLETE state to be resumed.")
         
         url = f"{self.base_url}/v1/organizations/{org_id}/agent/run/resume"
         
@@ -295,14 +305,19 @@ class CodegenClient:
         skip: int = 0, 
         limit: int = 100
     ) -> Dict[str, Any]:
-        """Get logs for an agent run"""
+        """
+        Get logs for an agent run
+        
+        This endpoint is currently in ALPHA and is subject to change.
+        """
         org_id = org_id or self.org_id
         if not org_id:
             raise ValidationError("Organization ID is required")
         if not agent_run_id:
             raise ValidationError("Agent run ID is required")
         
-        url = f"{self.base_url}/v1/organizations/{org_id}/agent/run/{agent_run_id}/logs"
+        # Use the alpha endpoint for agent run logs
+        url = f"{self.base_url}/v1/alpha/organizations/{org_id}/agent/run/{agent_run_id}/logs"
         
         params = {
             "skip": skip,
