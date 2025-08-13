@@ -4,15 +4,13 @@ MCP server for Codegen API
 """
 
 import os
-import sys
 import json
 import time
 import logging
 import argparse
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Dict, Any, List, Optional, Union, Callable
-from urllib.parse import parse_qs, urlparse
+from typing import Dict, Any, Optional
 
 # Import the Codegen client
 from codegen_client import CodegenClient, ValidationError
