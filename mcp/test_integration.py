@@ -5,10 +5,7 @@ Test script for Codegen MCP server integration
 
 import os
 import sys
-import json
-import time
 import logging
-from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -21,7 +18,6 @@ logger = logging.getLogger(__name__)
 from codegen_client import CodegenClient
 from config import Config
 from state_manager import StateManager
-from async_handler import AsyncHandler
 
 def test_config():
     """Test configuration"""

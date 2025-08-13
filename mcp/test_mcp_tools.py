@@ -5,9 +5,7 @@ Test script for MCP tools
 
 import os
 import sys
-import json
 import logging
-from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -30,11 +28,11 @@ def test_config():
     
     # Set API token
     config.set("api_token", "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99")
-    logger.info(f"Set API token")
+    logger.info("Set API token")
     
     # Set org ID
     config.set("org_id", "323")
-    logger.info(f"Set org ID")
+    logger.info("Set org ID")
     
     # Get API token
     api_token = config.get("api_token")

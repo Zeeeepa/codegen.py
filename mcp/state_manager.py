@@ -3,12 +3,11 @@ State management for Codegen MCP server
 Tracks agent runs and orchestrator relationships
 """
 
-import os
 import json
 import time
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, Optional
 from threading import Lock
 
 logger = logging.getLogger(__name__)

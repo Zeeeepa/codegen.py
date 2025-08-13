@@ -3,10 +3,9 @@ Simplified Codegen API client for MCP server
 """
 
 import os
-import json
 import time
 import logging
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List
 from enum import Enum
 import requests
 

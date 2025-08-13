@@ -11,12 +11,9 @@ Usage:
 
 import os
 import sys
-import json
-import time
 import logging
 import argparse
-import threading
-from typing import Dict, Any, List, Optional, Union, Tuple
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 # Create log directory if it doesn't exist
@@ -36,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 # Import MCP server components
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from codegen_client import CodegenClient, CodegenAPIError
+from codegen_client import CodegenClient
 from config import Config
 from state_manager import StateManager
 from async_handler import AsyncHandler

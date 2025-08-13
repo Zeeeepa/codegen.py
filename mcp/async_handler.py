@@ -2,12 +2,10 @@
 Async handler for managing long-running agent operations
 """
 
-import os
 import time
 import logging
 import threading
-import subprocess
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, Callable
 from queue import Queue, Empty
 
 # Import from the same directory
@@ -131,7 +129,7 @@ class AsyncHandler:
             prompt = task.get("prompt")
             
             # Resume the agent run
-            result = self.client.resume_agent_run(
+            self.client.resume_agent_run(
                 agent_run_id=agent_run_id,
                 prompt=prompt
             )
