@@ -393,6 +393,26 @@ Add to your `.cursor/settings.json`:
   "ai.mcpServers": [
     {
       "name": "codegenapi",
+      "command": "uv",
+      "args": [
+        "/path/to/codegen.py/mcp/server.py"
+      ],
+      "env": {
+        "CODEGEN_ORG_ID": "323",
+        "CODEGEN_API_TOKEN": "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
+      }
+    }
+  ]
+}
+```
+
+Alternatively, you can use this configuration:
+
+```json
+{
+  "ai.mcpServers": [
+    {
+      "name": "codegenapi",
       "command": "python",
       "args": [
         "-m",
@@ -402,7 +422,11 @@ Add to your `.cursor/settings.json`:
         "--port",
         "8081"
       ],
-      "cwd": "/path/to/codegen.py"
+      "cwd": "/path/to/codegen.py",
+      "env": {
+        "CODEGEN_ORG_ID": "323",
+        "CODEGEN_API_TOKEN": "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
+      }
     }
   ]
 }
@@ -411,6 +435,26 @@ Add to your `.cursor/settings.json`:
 ### Claude Code
 
 Add to your `.claude-code.json`:
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "codegenapi",
+      "command": "uv",
+      "args": [
+        "/path/to/codegen.py/mcp/server.py"
+      ],
+      "env": {
+        "CODEGEN_ORG_ID": "323",
+        "CODEGEN_API_TOKEN": "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
+      }
+    }
+  ]
+}
+```
+
+Alternatively, you can use this configuration:
 
 ```json
 {
@@ -426,7 +470,11 @@ Add to your `.claude-code.json`:
         "--port",
         "8081"
       ],
-      "cwd": "/path/to/codegen.py"
+      "cwd": "/path/to/codegen.py",
+      "env": {
+        "CODEGEN_ORG_ID": "323",
+        "CODEGEN_API_TOKEN": "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
+      }
     }
   ]
 }
@@ -435,6 +483,23 @@ Add to your `.claude-code.json`:
 ### Generic Configuration
 
 For any AI assistant that supports MCP servers:
+
+```json
+{
+  "codegenapi": {
+    "command": "uv",
+    "args": [
+      "/path/to/codegen.py/mcp/server.py"
+    ],
+    "env": {
+      "CODEGEN_ORG_ID": "323",
+      "CODEGEN_API_TOKEN": "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
+    }
+  }
+}
+```
+
+Alternatively, you can use this configuration:
 
 ```json
 {
@@ -448,7 +513,11 @@ For any AI assistant that supports MCP servers:
       "--port",
       "8081"
     ],
-    "cwd": "/path/to/codegen.py"
+    "cwd": "/path/to/codegen.py",
+    "env": {
+      "CODEGEN_ORG_ID": "323",
+      "CODEGEN_API_TOKEN": "sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99"
+    }
   }
 }
 ```
@@ -698,4 +767,3 @@ python -m mcp.server --host localhost --port 8081
 ## License
 
 MIT
-
