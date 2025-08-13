@@ -1,43 +1,32 @@
 #!/usr/bin/env python3
 """
-Codegen MCP Server
+MCP Server for Codegen API
 
-This module provides a Model Context Protocol (MCP) server for the Codegen API.
+This module provides a simple HTTP server that implements the Model Context Protocol (MCP)
+for the Codegen API.
 """
 
 import os
 import sys
 import json
-import logging
 import argparse
-from typing import Dict, Any, Optional, List, Tuple, Callable
-import traceback
+import logging
+from typing import Dict, Any, Optional
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Import handlers
 from .handlers import (
     handle_new_command,
     handle_resume_command,
     handle_config_command,
     handle_list_command,
-    handle_task_status_command
+    handle_task_status_command,
 )
+from .config import get_api_token, get_org_id, get_base_url
 
-# Command handlers mapping
-COMMAND_HANDLERS = {
-    "new": handle_new_command,
-    "resume": handle_resume_command,
-    "config": handle_config_command,
-    "list": handle_list_command,
-    "task_status": handle_task_status_command
-}
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class MCPRequestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for MCP server."""
@@ -52,114 +41,92 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
     
     def do_OPTIONS(self):
-        """Handle OPTIONS requests for CORS."""
+        """Handle OPTIONS requests."""
         self._set_headers()
     
     def do_POST(self):
         """Handle POST requests."""
-        # Get content length
         content_length = int(self.headers.get("Content-Length", 0))
-        
-        # Read request body
-        request_body = self.rfile.read(content_length).decode("utf-8")
+        if content_length == 0:
+            self._set_headers()
+            self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
+            return
         
         try:
-            # Parse request JSON
+            # Parse request body
+            request_body = self.rfile.read(content_length).decode("utf-8")
             request_data = json.loads(request_body)
             
-            # Log request
-            logger.info(f"Received request: {json.dumps(request_data)}")
+            # Extract command and arguments
+            command = request_data.get("command")
+            args = request_data.get("args", {})
             
-            # Process request
-            response_data = self._process_request(request_data)
+            # Handle command
+            response = self._handle_command(command, args)
             
             # Send response
             self._set_headers()
-            self.wfile.write(json.dumps(response_data).encode("utf-8"))
-            
+            self.wfile.write(json.dumps(response).encode())
+        
         except json.JSONDecodeError:
-            # Invalid JSON
             self._set_headers()
-            error_response = {
-                "status": "error",
-                "error": "Invalid JSON",
-                "details": "The request body is not valid JSON."
-            }
-            self.wfile.write(json.dumps(error_response).encode("utf-8"))
-            
+            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+        
         except Exception as e:
-            # Unexpected error
-            logger.error(f"Error processing request: {e}")
-            logger.error(traceback.format_exc())
-            
+            logger.exception(f"Error handling request: {e}")
             self._set_headers()
-            error_response = {
-                "status": "error",
-                "error": "Internal server error",
-                "details": str(e)
-            }
-            self.wfile.write(json.dumps(error_response).encode("utf-8"))
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
     
-    def _process_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process MCP request and return response."""
-        # Validate request format
-        if "command" not in request_data:
+    def _handle_command(self, command: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle MCP command."""
+        logger.info(f"Handling command: {command}")
+        
+        if command == "new":
+            return handle_new_command(args)
+        
+        elif command == "resume":
+            return handle_resume_command(args)
+        
+        elif command == "config":
+            return handle_config_command(args)
+        
+        elif command == "list":
+            return handle_list_command(args)
+        
+        elif command == "task_status":
+            return handle_task_status_command(args)
+        
+        else:
             return {
                 "status": "error",
-                "error": "Missing command",
-                "details": "The 'command' field is required in the request."
+                "error": "Unknown command",
+                "details": f"Command '{command}' is not supported."
             }
-        
-        # Get command and arguments
-        command = request_data["command"]
-        args = request_data.get("args", {})
-        
-        # Check if command is supported
-        if command not in COMMAND_HANDLERS:
-            return {
-                "status": "error",
-                "error": "Unsupported command",
-                "details": f"The command '{command}' is not supported. Supported commands: {', '.join(COMMAND_HANDLERS.keys())}"
-            }
-        
-        # Handle command
-        handler = COMMAND_HANDLERS[command]
-        return handler(args)
 
-
-def run_server(host="localhost", port=8080):
+def run_server(host: str, port: int):
     """Run the MCP server."""
     server_address = (host, port)
     httpd = HTTPServer(server_address, MCPRequestHandler)
     
-    logger.info(f"Starting Codegen MCP server on {host}:{port}")
-    logger.info("Press Ctrl+C to stop the server")
+    logger.info(f"Starting MCP server on {host}:{port}")
+    logger.info(f"API Token: {get_api_token()[:4]}...{get_api_token()[-4:] if get_api_token() else ''}")
+    logger.info(f"Org ID: {get_org_id()}")
+    logger.info(f"Base URL: {get_base_url()}")
     
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        logger.info("Server stopped by user")
-    finally:
+        logger.info("Stopping MCP server")
         httpd.server_close()
-        logger.info("Server closed")
-
 
 def main():
-    """Main entry point."""
+    """Main function."""
     parser = argparse.ArgumentParser(description="Codegen MCP Server")
     parser.add_argument("--host", default="localhost", help="Server host (default: localhost)")
     parser.add_argument("--port", type=int, default=8080, help="Server port (default: 8080)")
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    
     args = parser.parse_args()
     
-    # Set log level
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-    
-    # Run server
-    run_server(host=args.host, port=args.port)
-
+    run_server(args.host, args.port)
 
 if __name__ == "__main__":
     main()

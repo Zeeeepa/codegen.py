@@ -26,6 +26,9 @@ class AgentRunStatus(enum.Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    ACTIVE = "ACTIVE"
+    COMPLETE = "COMPLETE"
+    ERROR = "ERROR"
 
 class SourceType(enum.Enum):
     """Source type for agent runs."""
@@ -106,6 +109,7 @@ class Organization(BaseModel):
     slug: str
     created_at: str
     avatar_url: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
 
 class OrganizationsResponse(BaseModel):
     """Paginated list of organizations."""
@@ -119,12 +123,12 @@ class AgentRunLog(BaseModel):
     """Agent run log entry."""
     agent_run_id: int
     created_at: str
-    tool_name: str
+    tool_name: Optional[str] = None
     message_type: str
     thought: Optional[str] = None
-    observation: Dict[str, Any] = Field(default_factory=dict)
-    tool_input: Dict[str, Any] = Field(default_factory=dict)
-    tool_output: Dict[str, Any] = Field(default_factory=dict)
+    observation: Optional[Dict[str, Any]] = None
+    tool_input: Optional[Dict[str, Any]] = None
+    tool_output: Optional[Dict[str, Any]] = None
 
 class AgentRunLogsResponse(BaseModel):
     """Agent run with logs."""
@@ -334,7 +338,7 @@ class CodegenClient:
         return AgentRunResponse(**data)
     
     # Organizations Endpoints
-    def get_organizations(self, skip: int = 0, limit: int = 100) -> OrganizationsResponse:
+    def get_organizations(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
         """
         Get organizations the user has access to.
         
@@ -343,7 +347,7 @@ class CodegenClient:
             limit: Maximum number of organizations to return (1-100)
         
         Returns:
-            Paginated list of organizations
+            List of organizations
         """
         url = f"{self.config.base_url}/organizations"
         
@@ -352,7 +356,8 @@ class CodegenClient:
         response = requests.get(url, headers=self.get_headers(), params=params)
         data = self._handle_response(response)
         
-        return OrganizationsResponse(**data)
+        # Return raw data since the API response doesn't match our model
+        return data
     
     # Agents-Alpha Endpoints
     def get_agent_run_logs(
@@ -360,7 +365,7 @@ class CodegenClient:
         agent_run_id: int, 
         skip: int = 0, 
         limit: int = 100
-    ) -> AgentRunLogsResponse:
+    ) -> Dict[str, Any]:
         """
         Get logs for a specific agent run.
         
@@ -379,7 +384,8 @@ class CodegenClient:
         response = requests.get(url, headers=self.get_headers(), params=params)
         data = self._handle_response(response)
         
-        return AgentRunLogsResponse(**data)
+        # Return raw data since the API response doesn't match our model
+        return data
 
 # Task class for backward compatibility
 class Task:
@@ -416,7 +422,9 @@ class Task:
             if self.status in [
                 AgentRunStatus.COMPLETED.value, 
                 AgentRunStatus.FAILED.value, 
-                AgentRunStatus.CANCELLED.value
+                AgentRunStatus.CANCELLED.value,
+                AgentRunStatus.COMPLETE.value,
+                AgentRunStatus.ERROR.value
             ]:
                 return self
             time.sleep(5)  # Poll every 5 seconds
@@ -425,10 +433,15 @@ class Task:
     
     def resume(self, prompt: str) -> 'Task':
         """Resume task."""
-        agent_run = self.agent.client.resume_agent_run(self.id, prompt)
-        self.status = agent_run.status
-        self.result = agent_run.result
-        self.web_url = agent_run.web_url
+        try:
+            agent_run = self.agent.client.resume_agent_run(self.id, prompt)
+            self.status = agent_run.status
+            self.result = agent_run.result
+            self.web_url = agent_run.web_url
+        except Exception as e:
+            logger.warning(f"Error resuming task: {e}")
+            # If resume fails, just refresh the task
+            self.refresh()
         return self
 
 # Agent class for backward compatibility

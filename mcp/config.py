@@ -1,84 +1,93 @@
 """
-Configuration Management
+Configuration module for the MCP server.
 
-This module provides functions for managing configuration settings for the Codegen MCP server.
+This module provides functions for getting and setting configuration values.
 """
 
 import os
 import json
+import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, Union
+from typing import Dict, Any, Optional
 
-# Default configuration directory
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Configuration directory
 CONFIG_DIR = Path.home() / ".codegen"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
-def ensure_config_dir() -> None:
+# Default configuration
+DEFAULT_CONFIG = {
+    "api_token": None,
+    "org_id": None,
+    "base_url": "https://api.codegen.com/v1"
+}
+
+def _ensure_config_dir():
     """Ensure the configuration directory exists."""
     CONFIG_DIR.mkdir(exist_ok=True)
 
-def load_config() -> Dict[str, Any]:
-    """Load configuration from file or create default if it doesn't exist."""
-    ensure_config_dir()
+def _load_config() -> Dict[str, Any]:
+    """Load configuration from file."""
+    _ensure_config_dir()
     
     if not CONFIG_FILE.exists():
-        # Create default config
-        default_config = {
-            "api_token": os.environ.get("CODEGEN_API_TOKEN", ""),
-            "org_id": os.environ.get("CODEGEN_ORG_ID", ""),
-            "base_url": os.environ.get("CODEGEN_BASE_URL", "https://api.codegen.com/v1")
-        }
-        save_config(default_config)
-        return default_config
+        return DEFAULT_CONFIG.copy()
     
     try:
         with open(CONFIG_FILE, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
-        # If file is corrupted or can't be read, create a new one
-        default_config = {
-            "api_token": os.environ.get("CODEGEN_API_TOKEN", ""),
-            "org_id": os.environ.get("CODEGEN_ORG_ID", ""),
-            "base_url": os.environ.get("CODEGEN_BASE_URL", "https://api.codegen.com/v1")
-        }
-        save_config(default_config)
-        return default_config
+            config = json.load(f)
+        
+        # Ensure all required keys are present
+        for key, value in DEFAULT_CONFIG.items():
+            if key not in config:
+                config[key] = value
+        
+        return config
+    
+    except Exception as e:
+        logger.error(f"Error loading configuration: {e}")
+        return DEFAULT_CONFIG.copy()
 
-def save_config(config: Dict[str, Any]) -> None:
+def _save_config(config: Dict[str, Any]):
     """Save configuration to file."""
-    ensure_config_dir()
+    _ensure_config_dir()
     
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(config, f, indent=2)
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f, indent=2)
+    
+    except Exception as e:
+        logger.error(f"Error saving configuration: {e}")
 
-def get_config_value(key: str, default: Any = None) -> Any:
+def get_config_value(key: str) -> Any:
     """Get a configuration value."""
-    config = load_config()
-    
     # Check environment variables first
     env_key = f"CODEGEN_{key.upper()}"
-    env_value = os.environ.get(env_key)
-    if env_value is not None:
-        return env_value
+    if env_key in os.environ:
+        return os.environ[env_key]
     
-    # Then check config file
-    return config.get(key, default)
+    # Then check configuration file
+    config = _load_config()
+    return config.get(key)
 
-def set_config_value(key: str, value: Any) -> None:
+def set_config_value(key: str, value: Any):
     """Set a configuration value."""
-    config = load_config()
+    config = _load_config()
     config[key] = value
-    save_config(config)
+    _save_config(config)
 
-def get_api_token() -> str:
-    """Get the API token from config or environment."""
-    return get_config_value("api_token", "")
+def get_api_token() -> Optional[str]:
+    """Get the API token."""
+    return get_config_value("api_token")
 
-def get_org_id() -> str:
-    """Get the organization ID from config or environment."""
-    return get_config_value("org_id", "")
+def get_org_id() -> Optional[str]:
+    """Get the organization ID."""
+    return get_config_value("org_id")
 
 def get_base_url() -> str:
-    """Get the base URL from config or environment."""
-    return get_config_value("base_url", "https://api.codegen.com/v1")
+    """Get the base URL."""
+    return get_config_value("base_url") or DEFAULT_CONFIG["base_url"]
 
