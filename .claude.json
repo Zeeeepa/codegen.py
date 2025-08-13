@@ -2,7 +2,7 @@
   "codegenapi": {
     "command": "python",
     "args": [
-      "mcp/mock_server.py",
+      "mcp/server.py",
       "--debug"
     ]
   }
