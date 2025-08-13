@@ -1,141 +1,144 @@
 # Codegen API MCP Server
 
-A Model Context Protocol (MCP) server for interacting with the Codegen API. This server provides a set of tools that allow AI assistants to create and manage agent runs, retrieve user and organization information, and more.
+This is an MCP (Model Context Protocol) server for the Codegen API. It allows AI assistants to interact with the Codegen API to create and manage agent runs.
 
 ## Installation
 
 ```bash
 # Clone the repository
 git clone https://github.com/Zeeeepa/codegen.py.git
-cd codegen.py/mcp
+cd codegen.py
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r mcp/requirements.txt
 ```
 
 ## Configuration
 
-Set the following environment variables:
+Set your Codegen API credentials using environment variables:
 
 ```bash
-export CODEGEN_ORG_ID=your_organization_id
+export CODEGEN_ORG_ID=your_org_id
 export CODEGEN_API_TOKEN=your_api_token
 ```
 
-Or use the configuration tool:
+Alternatively, you can use the config command:
 
 ```bash
-python -c "from codegen_client import CodegenClient; client = CodegenClient(); client.manage_config(action='set', key='api-token', value='your_api_token'); client.manage_config(action='set', key='org_id', value='your_organization_id')"
+python -m mcp.codegenapi config set org_id your_org_id
+python -m mcp.codegenapi config set api-token your_api_token
 ```
 
-## Usage
+## MCP Integration
 
-### Starting the Server
-
-```bash
-python server.py --host localhost --port 8080
-```
-
-### MCP Integration
-
-Add the following to your MCP client configuration:
+Add this to your MCP configuration:
 
 ```json
 {
   "codegenapi": {
-    "command": "uv",
+    "command": "python",
     "args": [
-      "--directory",
-      "<Project'sRootDir>/mcp",
-      "run",
-      "server.py"
-    ]
+      "-m",
+      "mcp.server"
+    ],
+    "env": {
+      "CODEGEN_ORG_ID": "your_org_id",
+      "CODEGEN_API_TOKEN": "your_api_token"
+    }
+  }
+}
+```
+
+### For Cursor
+
+Add to `.cursor/mcp_servers.json`:
+
+```json
+{
+  "codegenapi": {
+    "command": "python",
+    "args": [
+      "-m",
+      "mcp.server"
+    ],
+    "env": {
+      "CODEGEN_ORG_ID": "your_org_id",
+      "CODEGEN_API_TOKEN": "your_api_token"
+    }
+  }
+}
+```
+
+### For Claude Code
+
+Add to your `.claude.json`:
+
+```json
+{
+  "mcp_servers": {
+    "codegenapi": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp.server"
+      ],
+      "env": {
+        "CODEGEN_ORG_ID": "your_org_id",
+        "CODEGEN_API_TOKEN": "your_api_token"
+      }
+    }
   }
 }
 ```
 
 ## Available Tools
 
-### User Management
+The MCP server provides the following tools:
 
-- `codegenapi_get_users` - Get all users in an organization
-- `codegenapi_get_user` - Get a specific user by ID
-- `codegenapi_get_current_user` - Get information about the currently authenticated user
-
-### Organization Management
-
-- `codegenapi_get_organizations` - Get organizations for the authenticated user
-
-### Agent Management
-
+- `codegenapi_get_users` - Get all users
+- `codegenapi_get_user` - Get a specific user
+- `codegenapi_get_current_user` - Get the current user
+- `codegenapi_get_organizations` - Get all organizations
 - `codegenapi_new` - Create a new agent run
-- `codegenapi_get_agent_run` - Get agent run details
-- `codegenapi_resume` - Resume a paused agent run (only if status is COMPLETE)
-- `codegenapi_list` - List agent runs for an organization
-- `codegenapi_get_agent_run_logs` - Get logs for an agent run
-
-### Configuration
-
+- `codegenapi_get_agent_run` - Get an agent run
+- `codegenapi_resume` - Resume a paused agent run
+- `codegenapi_list` - List agent runs
+- `codegenapi_get_agent_run_logs` - Get agent run logs
 - `codegenapi_config` - Manage configuration
 
-## Command Line Examples
+## Command Line Interface
 
-### Create a New Agent Run
+The MCP server also includes a command line interface for interacting with the Codegen API:
 
 ```bash
 # Create a new agent run
-codegenapi new --repo Zeeeepa/codegen.py --task CREATE_PLAN --query "Create a comprehensive plan to properly structure codebase"
+python -m mcp.codegenapi new --repo user/repo --task CREATE_PLAN --query "Create a plan"
 
-# Optional parameters
-codegenapi new --repo Zeeeepa/codegen.py --branch codegen-bot/code-quality-analysis-plan-1754927688 --pr 9 --task CREATE_PLAN --query "Create a comprehensive plan to properly structure codebase"
-```
-
-### Resume an Agent Run
-
-```bash
 # Resume an agent run
-codegenapi resume --agent_run_id 11745 --query "analyze frontend of the codebase"
+python -m mcp.codegenapi resume --agent_run_id 12345 --query "Continue analysis"
 
-# Optional parameters
-codegenapi resume --agent_run_id 11745 --task ANALYZE --query "analyze frontend of the codebase"
-```
+# List agent runs
+python -m mcp.codegenapi list --limit 10 --status COMPLETE
 
-### List Agent Runs
+# Get agent run details
+python -m mcp.codegenapi get --agent_run_id 12345
 
-```bash
-# List recent tasks and their run_ids + repos + statuses
-codegenapi list
+# Get agent run logs
+python -m mcp.codegenapi logs --agent_run_id 12345 --limit 10
 
-# Filter by status
-codegenapi list --status running --limit 20
-
-# Filter by repository
-codegenapi list --repo user/repo
-```
-
-### Configuration
-
-```bash
-# Set API token
-codegenapi config set api-token YOUR_TOKEN
-
-# Set organization ID
-codegenapi config set org_id YOUR_ORG_ID
+# Manage configuration
+python -m mcp.codegenapi config set api-token your_api_token
 ```
 
 ## Asynchronous Operation
 
-The MCP server supports asynchronous operation:
+Agent runs continue in the background on the Codegen servers even if the MCP server or client is stopped. You can retrieve the results later by calling `codegenapi_get_agent_run` with the run ID.
 
-1. When an agent run is created, it returns immediately with the run ID
-2. The async handler monitors the run in the background
-3. When the run completes, the result is stored and can be retrieved
+For a fully automated solution, you can use the `--wait` flag with the CLI:
 
-This allows for creating multiple agent runs without blocking, and clients can retrieve the results when they're ready.
+```bash
+python -m mcp.codegenapi new --repo user/repo --task TEST --query "Test" --wait
+```
 
-## Important Notes
-
-- Agent runs can take a long time to complete
-- The `resume` command can only be used if the agent run status is "COMPLETE" (not "ACTIVE")
-- The `get_agent_run_logs` endpoint uses the alpha API and may change in the future
+This will wait for the agent run to complete and then print the result.
 

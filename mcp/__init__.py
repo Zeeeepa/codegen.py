@@ -1,7 +1,5 @@
 """
-Codegen MCP Server
-
-A Model Context Protocol (MCP) server for Codegen API integration.
+Codegen API MCP Server
 """
 
 __version__ = "0.1.0"
