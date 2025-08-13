@@ -4,6 +4,7 @@ Codegen API MCP Server
 
 A Model Context Protocol server that provides access to Codegen API functionality.
 Supports core commands: new, resume, config, list
+Also provides direct API endpoints for users, agents, organizations, and logs
 """
 
 import asyncio
@@ -13,7 +14,8 @@ import sys
 import time
 import threading
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional, List
+from threading import Thread
 
 # Add parent directory to path to import codegen_api
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -30,8 +32,9 @@ from mcp_types import (
 # Import the codegen API
 try:
     from codegen_api import Agent, Task
+    from codegen_endpoints import CodegenEndpoints
 except ImportError as e:
-    print(f"Error importing codegen_api: {e}", file=sys.stderr)
+    print(f"Error importing codegen_api or codegen_endpoints: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Configuration file path
@@ -43,12 +46,33 @@ RELATIONSHIPS_FILE = Path.home() / ".codegenapi" / "relationships.json"
 class CodegenMCPServer:
     """MCP Server for Codegen API"""
     
-    def __init__(self):
+    def __init__(self, api_token: Optional[str] = None, org_id: Optional[int] = None, debug: bool = False):
         self.server = Server("codegenapi")
         self.config = self._load_config()
         self.relationships = self._load_relationships()
-        self.monitoring_thread = None
+        self.monitoring_thread: Optional[Thread] = None
         self.stop_monitoring = False
+        self.endpoints: Optional[CodegenEndpoints] = None
+        self.debug = debug
+        
+        # Get API token and org ID from parameters or environment variables
+        self.api_token = api_token or self.config.get('api_token') or os.getenv('CODEGEN_API_TOKEN')
+        self.org_id = org_id or self.config.get('org_id') or os.getenv('CODEGEN_ORG_ID')
+        
+        if self.org_id and isinstance(self.org_id, str):
+            try:
+                self.org_id = int(self.org_id)
+            except ValueError:
+                print(f"Warning: Invalid org_id: {self.org_id}", file=sys.stderr)
+                self.org_id = None
+        
+        # Initialize endpoints
+        if self.api_token:
+            # Cast org_id to the correct type for CodegenEndpoints
+            org_id_param = int(self.org_id) if self.org_id is not None and not isinstance(self.org_id, bool) else None
+            self.endpoints = CodegenEndpoints(api_token=self.api_token, org_id=org_id_param)
+        else:
+            self.endpoints = None
         
         # Register tools
         self._register_tools()
@@ -140,11 +164,12 @@ class CodegenMCPServer:
     
     def _start_monitoring_thread(self) -> None:
         """Start a thread to monitor agent runs"""
-        if self.monitoring_thread is None or not self.monitoring_thread.is_alive():
+        if self.monitoring_thread is None or (self.monitoring_thread and not self.monitoring_thread.is_alive()):
             self.stop_monitoring = False
             self.monitoring_thread = threading.Thread(target=self._monitor_agent_runs)
-            self.monitoring_thread.daemon = True
-            self.monitoring_thread.start()
+            if self.monitoring_thread:
+                self.monitoring_thread.daemon = True
+                self.monitoring_thread.start()
     
     def _monitor_agent_runs(self) -> None:
         """Monitor agent runs for completion and handle orchestration"""
@@ -220,131 +245,150 @@ class CodegenMCPServer:
         
         return Agent(org_id=org_id, token=api_token)
     
-    def _register_tools(self):
-        """Register all MCP tools"""
+    async def start(self):
+        """Start the MCP server"""
+        if self.debug:
+            print("Starting Codegen API MCP server in debug mode", file=sys.stderr)
         
+        # Run the server
+        async with stdio_server() as (read_stream, write_stream):
+            await self.server.run(
+                read_stream,
+                write_stream,
+                self.server.create_initialization_options()
+            )
+    
+    def _register_tools(self) -> List[Tool]:
+        """Register all MCP tools and return the list of tools"""
+        
+        # Register core tools
         @self.server.list_tools()
         async def list_tools() -> ListToolsResult:
-            return ListToolsResult(
-                tools=[
-                    Tool(
-                        name="codegenapi_new",
-                        description="Start a new agent run",
-                        parameters={
-                            "type": "object",
-                            "properties": {
-                                "repo": {
-                                    "type": "string",
-                                    "description": "Repository name (e.g., 'user/repo' or 'Zeeeepa/codegen.py')"
-                                },
-                                "branch": {
-                                    "type": "string",
-                                    "description": "Branch name (optional)"
-                                },
-                                "pr": {
-                                    "type": "integer",
-                                    "description": "PR number (optional)"
-                                },
-                                "task": {
-                                    "type": "string",
-                                    "description": "Task type (e.g., 'CREATE_PLAN', 'FEATURE_IMPLEMENTATION', 'BUG_FIX')"
-                                },
-                                "query": {
-                                    "type": "string",
-                                    "description": "Task description/query"
-                                },
-                                "parent_id": {
-                                    "type": "integer",
-                                    "description": "Optional parent agent run ID for orchestration"
-                                },
-                                "wait_for_completion": {
-                                    "type": "boolean",
-                                    "description": "Whether to wait for the run to complete before returning",
-                                    "default": False
-                                }
+            tools = [
+                Tool(
+                    name="codegenapi_new",
+                    description="Start a new agent run",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "repo": {
+                                "type": "string",
+                                "description": "Repository name (e.g., 'user/repo' or 'Zeeeepa/codegen.py')"
                             },
-                            "required": ["repo", "task", "query"]
-                        }
-                    ),
-                    Tool(
-                        name="codegenapi_resume",
-                        description="Resume an existing agent run",
-                        parameters={
-                            "type": "object",
-                            "properties": {
-                                "agent_run_id": {
-                                    "type": "integer",
-                                    "description": "Agent run ID to resume"
-                                },
-                                "task": {
-                                    "type": "string",
-                                    "description": "Optional task type for the resume operation"
-                                },
-                                "query": {
-                                    "type": "string",
-                                    "description": "Additional instructions for resuming"
-                                },
-                                "wait_for_completion": {
-                                    "type": "boolean",
-                                    "description": "Whether to wait for the run to complete before returning",
-                                    "default": False
-                                }
+                            "branch": {
+                                "type": "string",
+                                "description": "Branch name (optional)"
                             },
-                            "required": ["agent_run_id", "query"]
-                        }
-                    ),
-                    Tool(
-                        name="codegenapi_config",
-                        description="Manage configuration settings",
-                        parameters={
-                            "type": "object",
-                            "properties": {
-                                "action": {
-                                    "type": "string",
-                                    "enum": ["set", "get", "list"],
-                                    "description": "Configuration action"
-                                },
-                                "key": {
-                                    "type": "string",
-                                    "description": "Configuration key (for set/get actions)"
-                                },
-                                "value": {
-                                    "type": "string",
-                                    "description": "Configuration value (for set action)"
-                                }
+                            "pr": {
+                                "type": "integer",
+                                "description": "PR number (optional)"
                             },
-                            "required": ["action"]
-                        }
-                    ),
-                    Tool(
-                        name="codegenapi_list",
-                        description="List agent runs",
-                        parameters={
-                            "type": "object",
-                            "properties": {
-                                "status": {
-                                    "type": "string",
-                                    "enum": ["pending", "running", "completed", "failed", "cancelled", "paused"],
-                                    "description": "Filter by status (optional)"
-                                },
-                                "limit": {
-                                    "type": "integer",
-                                    "default": 10,
-                                    "description": "Number of runs to return (default: 10)"
-                                },
-                                "repo": {
-                                    "type": "string",
-                                    "description": "Filter by repository (optional)"
-                                }
+                            "task": {
+                                "type": "string",
+                                "description": "Task type (e.g., 'CREATE_PLAN', 'FEATURE_IMPLEMENTATION', 'BUG_FIX')"
+                            },
+                            "query": {
+                                "type": "string",
+                                "description": "Task description/query"
+                            },
+                            "parent_id": {
+                                "type": "integer",
+                                "description": "Optional parent agent run ID for orchestration"
+                            },
+                            "wait_for_completion": {
+                                "type": "boolean",
+                                "description": "Whether to wait for the run to complete before returning",
+                                "default": False
+                            }
+                        },
+                        "required": ["repo", "task", "query"]
+                    }
+                ),
+                Tool(
+                    name="codegenapi_resume",
+                    description="Resume an existing agent run",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "agent_run_id": {
+                                "type": "integer",
+                                "description": "Agent run ID to resume"
+                            },
+                            "task": {
+                                "type": "string",
+                                "description": "Optional task type for the resume operation"
+                            },
+                            "query": {
+                                "type": "string",
+                                "description": "Additional instructions for resuming"
+                            },
+                            "wait_for_completion": {
+                                "type": "boolean",
+                                "description": "Whether to wait for the run to complete before returning",
+                                "default": False
+                            }
+                        },
+                        "required": ["agent_run_id", "query"]
+                    }
+                ),
+                Tool(
+                    name="codegenapi_config",
+                    description="Manage configuration settings",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": ["set", "get", "list"],
+                                "description": "Configuration action"
+                            },
+                            "key": {
+                                "type": "string",
+                                "description": "Configuration key (for set/get actions)"
+                            },
+                            "value": {
+                                "type": "string",
+                                "description": "Configuration value (for set action)"
+                            }
+                        },
+                        "required": ["action"]
+                    }
+                ),
+                Tool(
+                    name="codegenapi_list",
+                    description="List agent runs",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "status": {
+                                "type": "string",
+                                "enum": ["pending", "running", "completed", "failed", "cancelled", "paused"],
+                                "description": "Filter by status (optional)"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Number of runs to return (default: 10)"
+                            },
+                            "repo": {
+                                "type": "string",
+                                "description": "Filter by repository (optional)"
                             }
                         }
-                    )
-                ]
-            )
+                    }
+                )
+            ]
+            
+            # Add API endpoint tools if endpoints are available
+            if self.endpoints:
+                tools.extend(self.endpoints.register_tools())
+            
+            return ListToolsResult(tools=tools)
         
         @self.server.call_tool()
         async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResponse:
             try:
+                # Handle core tools
                 if name == "codegenapi_new":
                     return await self._handle_new(arguments)
                 elif name == "codegenapi_resume":
@@ -353,6 +397,36 @@ class CodegenMCPServer:
                     return await self._handle_config(arguments)
                 elif name == "codegenapi_list":
                     return await self._handle_list(arguments)
+                
+                # Handle API endpoint tools
+                elif self.endpoints and name.startswith("codegen_"):
+                    # Users endpoints
+                    if name == "codegen_get_users":
+                        return await self.endpoints.handle_get_users(arguments)
+                    elif name == "codegen_get_user":
+                        return await self.endpoints.handle_get_user(arguments)
+                    elif name == "codegen_get_current_user":
+                        return await self.endpoints.handle_get_current_user(arguments)
+                    
+                    # Agents endpoints
+                    elif name == "codegen_create_agent_run":
+                        return await self.endpoints.handle_create_agent_run(arguments)
+                    elif name == "codegen_get_agent_run":
+                        return await self.endpoints.handle_get_agent_run(arguments)
+                    elif name == "codegen_list_agent_runs":
+                        return await self.endpoints.handle_list_agent_runs(arguments)
+                    elif name == "codegen_resume_agent_run":
+                        return await self.endpoints.handle_resume_agent_run(arguments)
+                    
+                    # Organizations endpoint
+                    elif name == "codegen_get_organizations":
+                        return await self.endpoints.handle_get_organizations(arguments)
+                    
+                    # Agents-Alpha endpoint
+                    elif name == "codegen_get_agent_run_logs":
+                        return await self.endpoints.handle_get_agent_run_logs(arguments)
+                
+                # Unknown tool
                 else:
                     return CallToolResponse(
                         content=[TextContent(type="text", text=f"Unknown tool: {name}")]
@@ -361,6 +435,12 @@ class CodegenMCPServer:
                 return CallToolResponse(
                     content=[TextContent(type="text", text=f"Error: {str(e)}")]
                 )
+        
+        # Return the list of tools for type checking
+        tools = []
+        if self.endpoints:
+            tools.extend(self.endpoints.register_tools())
+        return tools
     
     async def _handle_new(self, args: Dict[str, Any]) -> CallToolResponse:
         """Handle new agent run creation"""
@@ -635,14 +715,7 @@ class CodegenMCPServer:
 async def main():
     """Main entry point for the MCP server"""
     server_instance = CodegenMCPServer()
-    
-    # Run the server
-    async with stdio_server() as (read_stream, write_stream):
-        await server_instance.server.run(
-            read_stream,
-            write_stream,
-            server_instance.server.create_initialization_options()
-        )
+    await server_instance.start()
 
 if __name__ == "__main__":
     asyncio.run(main())
