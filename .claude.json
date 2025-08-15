@@ -1,0 +1,9 @@
+{
+  "codegenapi": {
+    "command": "python",
+    "args": [
+      "mcp/mock_server.py",
+      "--debug"
+    ]
+  }
+}
