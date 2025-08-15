@@ -1,0 +1,18 @@
+# Codegen Task Management Configuration
+# This file defines task types, templates, workflows, and system behavior
+
+# Task Type Definitions
+# Each task type specifies its template, requirements, and validation rules
+task_types:
+  PLAN_CREATION: "templates/plan_creation.md"
+  PLAN_EVALUATION: "templates/plan_evaluation.md"
+  FEATURE_IMPLEMENTATION: "templates/feature_implementation.md"
+  BUG_FIX: "templates/bug_fix.md"
+  CODEBASE_ANALYSIS: "templates/codebase_analysis.md"
+  CODE_RESTRUCTURE: "templates/code_restructure.md"
+  DOCUMENTATION_GENERATION: "templates/documentation_generation.md"
+  TEST_GENERATION: "templates/test_generation.md"
+  API_CREATION: "templates/api_creation.md"
+  GITHUB_WORKFLOW_CREATION: "templates/github_workflow_creation.md"
+
+
