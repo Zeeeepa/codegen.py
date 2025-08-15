@@ -1,0 +1,27 @@
+{
+  "name": "codegenapi_config",
+  "description": "Manage configuration settings",
+  "examples": [
+    {
+      "title": "Set API token",
+      "arguments": {
+        "action": "set",
+        "key": "api-token",
+        "value": "your_token_here"
+      }
+    },
+    {
+      "title": "Get API token (masked)",
+      "arguments": {
+        "action": "get",
+        "key": "api-token"
+      }
+    },
+    {
+      "title": "List all configuration",
+      "arguments": {
+        "action": "list"
+      }
+    }
+  ]
+}
