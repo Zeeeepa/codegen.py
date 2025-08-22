@@ -36,6 +36,37 @@ print(f"Created agent run with ID {agent_run.id}")
 # Get agent run details
 agent_run = client.agents.get_agent_run(org_id=org_id, agent_run_id=agent_run.id)
 print(f"Agent run status: {agent_run.status}")
+
+# Create a multi-run agent (run multiple agents and synthesize results)
+result = client.multi_run_agent.create_multi_run(
+    org_id=org_id,
+    prompt="Create a Python function to calculate the Fibonacci sequence",
+    concurrency=3,  # Run 3 agents in parallel
+    repo_id=123,  # Optional repository ID
+)
+print(f"Final synthesized output: {result['final']}")
+print(f"Number of candidate outputs: {len(result['candidates'])}")
+```
+
+## Command Line Interface
+
+The package includes a command-line interface for common operations:
+
+```bash
+# List organizations
+python cli.py organizations
+
+# List repositories for an organization
+python cli.py repositories 123
+
+# List users for an organization
+python cli.py users 123
+
+# Create an agent run
+python cli.py agent-run 123 "Create a Python function to calculate the Fibonacci sequence"
+
+# Create a multi-run agent (run multiple agents and synthesize results)
+python cli.py multi-run-agent 123 "Create a Python function to calculate the Fibonacci sequence" --concurrency 3
 ```
 
 ## Features
@@ -45,6 +76,7 @@ print(f"Agent run status: {agent_run.status}")
 - Automatic pagination handling
 - Proper error handling with specific exception types
 - Configurable via environment variables or constructor parameters
+- MultiRunAgent for running multiple agents concurrently and synthesizing results
 
 ## API Endpoints
 
@@ -58,6 +90,36 @@ The client provides access to the following API endpoints:
 - Setup Commands: `client.setup_commands`
 - Sandbox: `client.sandbox`
 - Agents Alpha: `client.agents_alpha`
+- MultiRunAgent: `client.multi_run_agent`
+
+## MultiRunAgent
+
+The MultiRunAgent feature allows you to run multiple agent instances concurrently and synthesize their outputs for better results:
+
+```python
+result = client.multi_run_agent.create_multi_run(
+    org_id=org_id,
+    prompt="Create a Python function to calculate the Fibonacci sequence",
+    concurrency=3,  # Run 3 agents in parallel
+    repo_id=123,  # Optional repository ID
+    model="gpt-4",  # Optional model to use
+    temperature=0.7,  # Temperature for generation (0.0-1.0)
+    synthesis_temperature=0.2,  # Temperature for synthesis (0.0-1.0)
+    synthesis_prompt=None,  # Optional custom prompt for synthesis
+    timeout=600.0,  # Maximum seconds to wait for completion
+)
+
+# Access the final synthesized output
+print(result["final"])
+
+# Access all candidate outputs
+for i, candidate in enumerate(result["candidates"]):
+    print(f"Candidate {i+1}: {candidate}")
+
+# Access details of all agent runs
+for run in result["agent_runs"]:
+    print(f"Run {run['id']}: {run['status']}")
+```
 
 ## Configuration
 
