@@ -1,170 +1,128 @@
 """
-Application controller for the Enhanced Codegen UI.
+Controller for the Enhanced Codegen UI.
 
-This module provides the main controller for the Enhanced Codegen UI,
-coordinating between the UI components and the Codegen API client.
+This module provides a controller for the Enhanced Codegen UI,
+coordinating between the UI and the API.
 """
 
 import logging
 import threading
 import queue
-from typing import Any, Dict, List, Optional, Callable, Union, TypeVar, Generic
+import json
+import os
+from typing import Dict, Any, Optional, List, Callable, Tuple
 
-from codegen_client import CodegenClient, CodegenApiError
 from enhanced_codegen_ui.core.events import EventBus, Event, EventType
-from enhanced_codegen_ui.core.state import ApplicationState
-from enhanced_codegen_ui.utils.config import ConfigManager
-from enhanced_codegen_ui.utils.logging_config import setup_logging
-
-# Type variable for generic methods
-T = TypeVar('T')
+from enhanced_codegen_ui.core.state import State
+from enhanced_codegen_ui.utils.constants import API_ENDPOINTS, DEFAULTS
 
 
 class Controller:
-    """
-    Main controller for the Enhanced Codegen UI.
+    """Controller for the Enhanced Codegen UI."""
     
-    This class coordinates between the UI components and the Codegen API client,
-    managing application state, events, and background tasks.
-    """
-    
-    def __init__(self):
-        """Initialize the controller."""
-        # Set up logging
-        setup_logging()
+    def __init__(self, api_url: Optional[str] = None, config_file: Optional[str] = None):
+        """
+        Initialize the controller.
+        
+        Args:
+            api_url: API URL
+            config_file: Configuration file path
+        """
         self.logger = logging.getLogger(__name__)
-        self.logger.info("Initializing Controller")
-        
-        # Initialize configuration
-        self.config = ConfigManager()
-        
-        # Initialize state
-        self.state = ApplicationState()
-        
-        # Initialize event bus
         self.event_bus = EventBus()
-        
-        # Initialize client
-        self.client = None
-        
-        # Initialize task queue and worker thread
+        self.state = State()
+        self.api_url = api_url or DEFAULTS["api_url"]
+        self.config_file = config_file or DEFAULTS["config_file"]
+        self.api_key = None
         self.task_queue = queue.Queue()
-        self.worker_thread = threading.Thread(target=self._process_tasks, daemon=True)
-        self.worker_thread.start()
+        self.worker_thread = None
+        self.running = False
+        
+        # Load configuration
+        self._load_config()
         
         # Register event handlers
         self._register_event_handlers()
         
-        # Try to initialize client from saved config
-        self._init_client_from_config()
-        
-    def _register_event_handlers(self):
-        """Register event handlers for application events."""
-        self.event_bus.subscribe(EventType.LOGIN_REQUESTED, self._handle_login_requested)
-        self.event_bus.subscribe(EventType.LOGOUT_REQUESTED, self._handle_logout_requested)
-        self.event_bus.subscribe(EventType.AGENT_RUN_REQUESTED, self._handle_agent_run_requested)
-        self.event_bus.subscribe(EventType.AGENT_RUN_CANCEL_REQUESTED, self._handle_agent_run_cancel_requested)
-        self.event_bus.subscribe(EventType.AGENT_RUN_CONTINUE_REQUESTED, self._handle_agent_run_continue_requested)
-        self.event_bus.subscribe(EventType.REFRESH_REQUESTED, self._handle_refresh_requested)
-        
-    def _init_client_from_config(self):
-        """Initialize the client from saved configuration."""
-        api_key = self.config.get("api_key")
-        if api_key:
-            self.logger.info("Initializing client from saved API key")
-            self.submit_task(
-                self._initialize_client,
-                api_key,
-                on_success=lambda result: self.event_bus.publish(
-                    Event(EventType.LOGIN_SUCCEEDED, {"client": self.client})
-                ),
-                on_error=lambda error: self.event_bus.publish(
-                    Event(EventType.LOGIN_FAILED, {"error": str(error)})
-                )
-            )
-    
-    def _initialize_client(self, api_key: str) -> CodegenClient:
-        """
-        Initialize the Codegen API client.
-        
-        Args:
-            api_key: API key for authentication
+    def _load_config(self):
+        """Load configuration from file."""
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, "r") as f:
+                    config = json.load(f)
+                    
+                # Update configuration
+                if "api_url" in config:
+                    self.api_url = config["api_url"]
+                if "api_key" in config:
+                    self.api_key = config["api_key"]
+                    
+                self.logger.info(f"Loaded configuration from {self.config_file}")
+        except Exception as e:
+            self.logger.error(f"Error loading configuration: {str(e)}")
             
-        Returns:
-            CodegenClient: Initialized client
+    def _save_config(self):
+        """Save configuration to file."""
+        try:
+            config = {
+                "api_url": self.api_url,
+                "api_key": self.api_key
+            }
             
-        Raises:
-            CodegenApiError: If client initialization fails
-        """
-        self.client = CodegenClient(api_key=api_key)
-        
-        # Test connection by getting organizations
-        orgs = self.client.organizations.get_organizations()
-        
-        # Set current organization
-        if orgs.items:
-            self.state.current_org_id = orgs.items[0].id
-            self.state.organizations = orgs.items
-            
-        return self.client
-    
-    def submit_task(
-        self,
-        task: Callable[..., T],
-        *args,
-        on_success: Optional[Callable[[T], None]] = None,
-        on_error: Optional[Callable[[Exception], None]] = None,
-        **kwargs
-    ) -> None:
-        """
-        Submit a task to be executed in the background.
-        
-        Args:
-            task: Task function to execute
-            *args: Arguments to pass to the task function
-            on_success: Callback to execute on success
-            on_error: Callback to execute on error
-            **kwargs: Keyword arguments to pass to the task function
-        """
-        self.task_queue.put((task, args, kwargs, on_success, on_error))
-        
-    def _process_tasks(self):
-        """Process tasks from the task queue."""
-        while True:
-            try:
-                # Get task from queue
-                task, args, kwargs, on_success, on_error = self.task_queue.get()
+            with open(self.config_file, "w") as f:
+                json.dump(config, f, indent=2)
                 
-                try:
-                    # Execute task
-                    result = task(*args, **kwargs)
-                    
-                    # Call success callback
-                    if on_success:
-                        on_success(result)
-                        
-                except Exception as e:
-                    # Log error
-                    self.logger.exception(f"Error executing task {task.__name__}: {str(e)}")
-                    
-                    # Call error callback
-                    if on_error:
-                        on_error(e)
-                        
-                finally:
-                    # Mark task as done
-                    self.task_queue.task_done()
-                    
-            except Exception as e:
-                # Log error
-                self.logger.exception(f"Error in task processor: {str(e)}")
-    
+            self.logger.info(f"Saved configuration to {self.config_file}")
+        except Exception as e:
+            self.logger.error(f"Error saving configuration: {str(e)}")
+            
+    def _register_event_handlers(self):
+        """Register event handlers."""
+        # Authentication events
+        self.event_bus.subscribe(
+            EventType.LOGIN_REQUESTED,
+            self._handle_login_requested
+        )
+        
+        self.event_bus.subscribe(
+            EventType.LOGOUT_REQUESTED,
+            self._handle_logout_requested
+        )
+        
+        # Agent run events
+        self.event_bus.subscribe(
+            EventType.AGENT_RUN_REQUESTED,
+            self._handle_agent_run_requested
+        )
+        
+        self.event_bus.subscribe(
+            EventType.AGENT_RUN_CANCELLED,
+            self._handle_agent_run_cancelled
+        )
+        
+        self.event_bus.subscribe(
+            EventType.AGENT_RUN_CONTINUED,
+            self._handle_agent_run_continued
+        )
+        
+        # Data events
+        self.event_bus.subscribe(
+            EventType.DATA_REQUESTED,
+            self._handle_data_requested
+        )
+        
+        # Refresh events
+        self.event_bus.subscribe(
+            EventType.REFRESH_REQUESTED,
+            self._handle_refresh_requested
+        )
+        
     def _handle_login_requested(self, event: Event):
         """
         Handle login requested event.
         
         Args:
-            event: Event object with api_key in data
+            event: Event object
         """
         api_key = event.data.get("api_key")
         if not api_key:
@@ -173,130 +131,54 @@ class Controller:
             )
             return
             
-        self.submit_task(
-            self._initialize_client,
+        # Queue login task
+        self._queue_task(
+            self._login,
             api_key,
-            on_success=lambda result: self._handle_login_success(api_key),
-            on_error=lambda error: self.event_bus.publish(
-                Event(EventType.LOGIN_FAILED, {"error": str(error)})
-            )
+            lambda result: self._handle_login_result(result, api_key)
         )
         
-    def _handle_login_success(self, api_key: str):
+    def _login(self, api_key: str) -> Dict[str, Any]:
         """
-        Handle successful login.
+        Login to the API.
         
         Args:
-            api_key: API key used for login
-        """
-        # Save API key
-        self.config.set("api_key", api_key)
-        
-        # Publish login succeeded event
-        self.event_bus.publish(
-            Event(EventType.LOGIN_SUCCEEDED, {
-                "client": self.client,
-                "org_id": self.state.current_org_id,
-                "organizations": self.state.organizations
-            })
-        )
-        
-        # Load initial data
-        self._load_initial_data()
-        
-    def _load_initial_data(self):
-        """Load initial data after login."""
-        if not self.client or not self.state.current_org_id:
-            return
+            api_key: API key
             
-        # Load agent runs
-        self.submit_task(
-            self._load_agent_runs,
-            on_success=lambda result: self.event_bus.publish(
-                Event(EventType.AGENT_RUNS_LOADED, {"agent_runs": result})
-            ),
-            on_error=lambda error: self.event_bus.publish(
-                Event(EventType.LOAD_ERROR, {"error": str(error), "type": "agent_runs"})
-            )
-        )
-        
-        # Load repositories
-        self.submit_task(
-            self._load_repositories,
-            on_success=lambda result: self.event_bus.publish(
-                Event(EventType.REPOSITORIES_LOADED, {"repositories": result})
-            ),
-            on_error=lambda error: self.event_bus.publish(
-                Event(EventType.LOAD_ERROR, {"error": str(error), "type": "repositories"})
-            )
-        )
-        
-        # Load models
-        self.submit_task(
-            self._load_models,
-            on_success=lambda result: self.event_bus.publish(
-                Event(EventType.MODELS_LOADED, {"models": result})
-            ),
-            on_error=lambda error: self.event_bus.publish(
-                Event(EventType.LOAD_ERROR, {"error": str(error), "type": "models"})
-            )
-        )
-        
-    def _load_agent_runs(self, limit: int = 50, status: Optional[str] = None):
+        Returns:
+            API response
         """
-        Load agent runs from the API.
+        # TODO: Implement API login
+        # For now, just return success
+        return {"status": "success", "user": {"id": "test-user", "name": "Test User"}}
+        
+    def _handle_login_result(self, result: Dict[str, Any], api_key: str):
+        """
+        Handle login result.
         
         Args:
-            limit: Maximum number of agent runs to load
-            status: Optional status filter
+            result: API response
+            api_key: API key
+        """
+        if result.get("status") == "success":
+            # Update state
+            self.api_key = api_key
+            self.state.set("user", result.get("user"))
+            self.state.set("authenticated", True)
             
-        Returns:
-            List of agent runs
-        """
-        params = {"limit": limit}
-        if status:
-            params["status"] = status
+            # Save configuration
+            self._save_config()
             
-        agent_runs = self.client.agents.get_agent_runs(
-            org_id=self.state.current_org_id,
-            **params
-        )
-        
-        return agent_runs.items
-        
-    def _load_repositories(self, limit: int = 50):
-        """
-        Load repositories from the API.
-        
-        Args:
-            limit: Maximum number of repositories to load
+            # Publish event
+            self.event_bus.publish(
+                Event(EventType.LOGIN_SUCCEEDED, {"user": result.get("user")})
+            )
+        else:
+            # Publish event
+            self.event_bus.publish(
+                Event(EventType.LOGIN_FAILED, {"error": result.get("error", "Login failed")})
+            )
             
-        Returns:
-            List of repositories
-        """
-        repositories = self.client.repositories.get_repositories(
-            org_id=self.state.current_org_id,
-            limit=limit
-        )
-        
-        return repositories.items
-        
-    def _load_models(self):
-        """
-        Load available models.
-        
-        Returns:
-            List of available models
-        """
-        # In a real implementation, this would fetch models from the API
-        # For now, return a default list
-        return [
-            "gpt-4",
-            "gpt-3.5-turbo",
-            "claude-2",
-            "claude-instant",
-        ]
-        
     def _handle_logout_requested(self, event: Event):
         """
         Handle logout requested event.
@@ -304,327 +186,454 @@ class Controller:
         Args:
             event: Event object
         """
-        # Clear API key
-        self.config.set("api_key", "")
+        # Update state
+        self.api_key = None
+        self.state.set("user", None)
+        self.state.set("authenticated", False)
         
-        # Clear client and state
-        self.client = None
-        self.state.reset()
-        
-        # Publish logout succeeded event
-        self.event_bus.publish(Event(EventType.LOGOUT_SUCCEEDED, {}))
+        # Save configuration
+        self._save_config()
         
     def _handle_agent_run_requested(self, event: Event):
         """
         Handle agent run requested event.
         
         Args:
-            event: Event object with agent run parameters
+            event: Event object
         """
-        if not self.client or not self.state.current_org_id:
-            self.event_bus.publish(
-                Event(EventType.AGENT_RUN_FAILED, {"error": "Not logged in"})
-            )
-            return
-            
-        # Get parameters
-        prompt = event.data.get("prompt")
-        repo_id = event.data.get("repo_id")
-        model = event.data.get("model")
-        temperature = event.data.get("temperature", 0.7)
-        metadata = event.data.get("metadata")
-        
-        # Validate parameters
-        if not prompt:
-            self.event_bus.publish(
-                Event(EventType.AGENT_RUN_FAILED, {"error": "Prompt is required"})
-            )
-            return
-            
-        # Create agent run
-        self.submit_task(
+        # Queue agent run task
+        self._queue_task(
             self._create_agent_run,
-            prompt, repo_id, model, temperature, metadata,
-            on_success=lambda result: self.event_bus.publish(
-                Event(EventType.AGENT_RUN_SUCCEEDED, {"agent_run": result})
-            ),
-            on_error=lambda error: self.event_bus.publish(
-                Event(EventType.AGENT_RUN_FAILED, {"error": str(error)})
-            )
+            event.data,
+            self._handle_agent_run_result
         )
         
-    def _create_agent_run(
-        self,
-        prompt: str,
-        repo_id: Optional[int] = None,
-        model: Optional[str] = None,
-        temperature: float = 0.7,
-        metadata: Optional[Dict[str, Any]] = None
-    ):
+    def _create_agent_run(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create an agent run.
         
         Args:
-            prompt: Prompt for the agent
-            repo_id: Optional repository ID
-            model: Optional model to use
-            temperature: Temperature for generation
-            metadata: Optional metadata
+            data: Agent run data
             
         Returns:
-            Created agent run
+            API response
         """
-        return self.client.agents.create_agent_run(
-            org_id=self.state.current_org_id,
-            prompt=prompt,
-            repo_id=repo_id,
-            model=model,
-            temperature=temperature,
-            metadata=metadata
-        )
+        # TODO: Implement API call
+        # For now, just return success
+        return {
+            "status": "success",
+            "agent_run": {
+                "id": "test-agent-run",
+                "status": "running",
+                "prompt": data.get("prompt"),
+                "repo_id": data.get("repo_id"),
+                "model": data.get("model")
+            }
+        }
         
-    def _handle_agent_run_cancel_requested(self, event: Event):
+    def _handle_agent_run_result(self, result: Dict[str, Any]):
         """
-        Handle agent run cancel requested event.
+        Handle agent run result.
         
         Args:
-            event: Event object with agent_run_id in data
+            result: API response
         """
-        if not self.client or not self.state.current_org_id:
+        if result.get("status") == "success":
+            # Publish event
             self.event_bus.publish(
-                Event(EventType.AGENT_RUN_CANCEL_FAILED, {"error": "Not logged in"})
+                Event(EventType.AGENT_RUN_STARTED, {"agent_run": result.get("agent_run")})
             )
-            return
+        else:
+            # Publish event
+            self.event_bus.publish(
+                Event(EventType.AGENT_RUN_FAILED, {"error": result.get("error", "Agent run failed")})
+            )
             
-        # Get agent run ID
+    def _handle_agent_run_cancelled(self, event: Event):
+        """
+        Handle agent run cancelled event.
+        
+        Args:
+            event: Event object
+        """
         agent_run_id = event.data.get("agent_run_id")
         if not agent_run_id:
             self.event_bus.publish(
-                Event(EventType.AGENT_RUN_CANCEL_FAILED, {"error": "Agent run ID is required"})
+                Event(EventType.ERROR_OCCURRED, {"error": "Agent run ID is required"})
             )
             return
             
-        # Cancel agent run
-        self.submit_task(
+        # Queue cancel task
+        self._queue_task(
             self._cancel_agent_run,
             agent_run_id,
-            on_success=lambda result: self.event_bus.publish(
-                Event(EventType.AGENT_RUN_CANCEL_SUCCEEDED, {"agent_run_id": agent_run_id})
-            ),
-            on_error=lambda error: self.event_bus.publish(
-                Event(EventType.AGENT_RUN_CANCEL_FAILED, {"error": str(error)})
-            )
+            lambda result: self._handle_cancel_agent_run_result(result, agent_run_id)
         )
         
-    def _cancel_agent_run(self, agent_run_id: str):
+    def _cancel_agent_run(self, agent_run_id: str) -> Dict[str, Any]:
         """
         Cancel an agent run.
         
         Args:
-            agent_run_id: ID of the agent run to cancel
+            agent_run_id: Agent run ID
             
         Returns:
-            Cancelled agent run
+            API response
         """
-        return self.client.agents.cancel_agent_run(
-            org_id=self.state.current_org_id,
-            agent_run_id=agent_run_id
-        )
+        # TODO: Implement API call
+        # For now, just return success
+        return {"status": "success"}
         
-    def _handle_agent_run_continue_requested(self, event: Event):
+    def _handle_cancel_agent_run_result(self, result: Dict[str, Any], agent_run_id: str):
         """
-        Handle agent run continue requested event.
+        Handle cancel agent run result.
         
         Args:
-            event: Event object with agent_run_id in data
+            result: API response
+            agent_run_id: Agent run ID
         """
-        if not self.client or not self.state.current_org_id:
+        if result.get("status") == "success":
+            # Publish event
             self.event_bus.publish(
-                Event(EventType.AGENT_RUN_CONTINUE_FAILED, {"error": "Not logged in"})
+                Event(EventType.AGENT_RUN_CANCELLED, {"agent_run_id": agent_run_id})
             )
-            return
+        else:
+            # Publish event
+            self.event_bus.publish(
+                Event(EventType.ERROR_OCCURRED, {"error": result.get("error", "Cancel agent run failed")})
+            )
             
-        # Get agent run ID
+    def _handle_agent_run_continued(self, event: Event):
+        """
+        Handle agent run continued event.
+        
+        Args:
+            event: Event object
+        """
         agent_run_id = event.data.get("agent_run_id")
         if not agent_run_id:
             self.event_bus.publish(
-                Event(EventType.AGENT_RUN_CONTINUE_FAILED, {"error": "Agent run ID is required"})
+                Event(EventType.ERROR_OCCURRED, {"error": "Agent run ID is required"})
             )
             return
             
-        # Continue agent run
-        self.submit_task(
+        # Queue continue task
+        self._queue_task(
             self._continue_agent_run,
             agent_run_id,
-            on_success=lambda result: self.event_bus.publish(
-                Event(EventType.AGENT_RUN_CONTINUE_SUCCEEDED, {"agent_run": result})
-            ),
-            on_error=lambda error: self.event_bus.publish(
-                Event(EventType.AGENT_RUN_CONTINUE_FAILED, {"error": str(error)})
-            )
+            lambda result: self._handle_continue_agent_run_result(result, agent_run_id)
         )
         
-    def _continue_agent_run(self, agent_run_id: str):
+    def _continue_agent_run(self, agent_run_id: str) -> Dict[str, Any]:
         """
         Continue an agent run.
         
         Args:
-            agent_run_id: ID of the agent run to continue
+            agent_run_id: Agent run ID
             
         Returns:
-            Continued agent run
+            API response
         """
-        return self.client.agents.resume_agent_run(
-            org_id=self.state.current_org_id,
-            agent_run_id=agent_run_id,
-            prompt="Continue from previous output"
+        # TODO: Implement API call
+        # For now, just return success
+        return {"status": "success"}
+        
+    def _handle_continue_agent_run_result(self, result: Dict[str, Any], agent_run_id: str):
+        """
+        Handle continue agent run result.
+        
+        Args:
+            result: API response
+            agent_run_id: Agent run ID
+        """
+        if result.get("status") == "success":
+            # Publish event
+            self.event_bus.publish(
+                Event(EventType.AGENT_RUN_CONTINUED, {"agent_run_id": agent_run_id})
+            )
+        else:
+            # Publish event
+            self.event_bus.publish(
+                Event(EventType.ERROR_OCCURRED, {"error": result.get("error", "Continue agent run failed")})
+            )
+            
+    def _handle_data_requested(self, event: Event):
+        """
+        Handle data requested event.
+        
+        Args:
+            event: Event object
+        """
+        data_type = event.data.get("type")
+        if not data_type:
+            self.event_bus.publish(
+                Event(EventType.ERROR_OCCURRED, {"error": "Data type is required"})
+            )
+            return
+            
+        # Queue data task
+        self._queue_task(
+            self._get_data,
+            data_type,
+            lambda result: self._handle_data_result(result, data_type)
         )
         
+    def _get_data(self, data_type: str) -> Dict[str, Any]:
+        """
+        Get data from the API.
+        
+        Args:
+            data_type: Data type
+            
+        Returns:
+            API response
+        """
+        # TODO: Implement API call
+        # For now, just return mock data
+        if data_type == "agent_runs":
+            return {
+                "status": "success",
+                "agent_runs": [
+                    {
+                        "id": "agent-run-1",
+                        "status": "completed",
+                        "prompt": "Test prompt 1",
+                        "repo_id": "repo-1",
+                        "model": "gpt-4",
+                        "created_at": "2023-01-01T00:00:00Z"
+                    },
+                    {
+                        "id": "agent-run-2",
+                        "status": "running",
+                        "prompt": "Test prompt 2",
+                        "repo_id": "repo-2",
+                        "model": "gpt-4",
+                        "created_at": "2023-01-02T00:00:00Z"
+                    }
+                ]
+            }
+        elif data_type == "repositories":
+            return {
+                "status": "success",
+                "repositories": [
+                    {
+                        "id": "repo-1",
+                        "name": "Repository 1",
+                        "description": "Test repository 1",
+                        "url": "https://github.com/test/repo1"
+                    },
+                    {
+                        "id": "repo-2",
+                        "name": "Repository 2",
+                        "description": "Test repository 2",
+                        "url": "https://github.com/test/repo2"
+                    }
+                ]
+            }
+        elif data_type == "organizations":
+            return {
+                "status": "success",
+                "organizations": [
+                    {
+                        "id": "org-1",
+                        "name": "Organization 1",
+                        "description": "Test organization 1"
+                    },
+                    {
+                        "id": "org-2",
+                        "name": "Organization 2",
+                        "description": "Test organization 2"
+                    }
+                ]
+            }
+        else:
+            return {"status": "error", "error": f"Unknown data type: {data_type}"}
+            
+    def _handle_data_result(self, result: Dict[str, Any], data_type: str):
+        """
+        Handle data result.
+        
+        Args:
+            result: API response
+            data_type: Data type
+        """
+        if result.get("status") == "success":
+            # Publish event
+            self.event_bus.publish(
+                Event(EventType.DATA_LOADED, {
+                    "type": data_type,
+                    data_type: result.get(data_type, [])
+                })
+            )
+        else:
+            # Publish event
+            self.event_bus.publish(
+                Event(EventType.DATA_LOAD_FAILED, {
+                    "type": data_type,
+                    "error": result.get("error", f"Failed to load {data_type}")
+                })
+            )
+            
     def _handle_refresh_requested(self, event: Event):
         """
         Handle refresh requested event.
         
         Args:
-            event: Event object with type in data
+            event: Event object
         """
-        refresh_type = event.data.get("type", "all")
+        # Just forward to data requested
+        self._handle_data_requested(event)
         
-        if refresh_type == "agent_runs" or refresh_type == "all":
-            self.submit_task(
-                self._load_agent_runs,
-                on_success=lambda result: self.event_bus.publish(
-                    Event(EventType.AGENT_RUNS_LOADED, {"agent_runs": result})
-                ),
-                on_error=lambda error: self.event_bus.publish(
-                    Event(EventType.LOAD_ERROR, {"error": str(error), "type": "agent_runs"})
-                )
-            )
-            
-        if refresh_type == "repositories" or refresh_type == "all":
-            self.submit_task(
-                self._load_repositories,
-                on_success=lambda result: self.event_bus.publish(
-                    Event(EventType.REPOSITORIES_LOADED, {"repositories": result})
-                ),
-                on_error=lambda error: self.event_bus.publish(
-                    Event(EventType.LOAD_ERROR, {"error": str(error), "type": "repositories"})
-                )
-            )
-            
-        if refresh_type == "models" or refresh_type == "all":
-            self.submit_task(
-                self._load_models,
-                on_success=lambda result: self.event_bus.publish(
-                    Event(EventType.MODELS_LOADED, {"models": result})
-                ),
-                on_error=lambda error: self.event_bus.publish(
-                    Event(EventType.LOAD_ERROR, {"error": str(error), "type": "models"})
-                )
-            )
-            
-    def get_agent_run(self, agent_run_id: str, callback: Callable[[Any], None]):
+    def _queue_task(self, task_func: Callable, *args, callback: Optional[Callable] = None):
         """
-        Get an agent run by ID.
+        Queue a task for the worker thread.
         
         Args:
-            agent_run_id: ID of the agent run to get
-            callback: Callback to execute with the agent run
+            task_func: Task function
+            *args: Task arguments
+            callback: Callback function for the result
         """
-        if not self.client or not self.state.current_org_id:
-            callback(None)
+        self.task_queue.put((task_func, args, callback))
+        
+        # Start worker thread if not running
+        if not self.running:
+            self._start_worker()
+            
+    def _start_worker(self):
+        """Start the worker thread."""
+        if self.worker_thread and self.worker_thread.is_alive():
             return
             
-        self.submit_task(
-            self._get_agent_run,
-            agent_run_id,
-            on_success=callback,
-            on_error=lambda error: callback(None)
-        )
+        self.running = True
+        self.worker_thread = threading.Thread(target=self._worker_loop)
+        self.worker_thread.daemon = True
+        self.worker_thread.start()
         
-    def _get_agent_run(self, agent_run_id: str):
+    def _worker_loop(self):
+        """Worker thread loop."""
+        while self.running:
+            try:
+                # Get task from queue with timeout
+                try:
+                    task_func, args, callback = self.task_queue.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+                    
+                # Execute task
+                try:
+                    result = task_func(*args)
+                    
+                    # Call callback with result
+                    if callback:
+                        callback(result)
+                except Exception as e:
+                    self.logger.error(f"Error executing task: {str(e)}")
+                    
+                    # Publish error event
+                    self.event_bus.publish(
+                        Event(EventType.ERROR_OCCURRED, {"error": str(e)})
+                    )
+                    
+                # Mark task as done
+                self.task_queue.task_done()
+            except Exception as e:
+                self.logger.error(f"Error in worker loop: {str(e)}")
+                
+    def stop(self):
+        """Stop the controller."""
+        self.running = False
+        
+        # Wait for worker thread to finish
+        if self.worker_thread and self.worker_thread.is_alive():
+            self.worker_thread.join(timeout=1.0)
+            
+    def get_agent_run(self, agent_run_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get an agent run by ID.
+        Get an agent run.
         
         Args:
-            agent_run_id: ID of the agent run to get
+            agent_run_id: Agent run ID
             
         Returns:
-            Agent run
+            Agent run data or None if not found
         """
-        return self.client.agents.get_agent_run(
-            org_id=self.state.current_org_id,
-            agent_run_id=agent_run_id
-        )
+        # TODO: Implement API call
+        # For now, just return mock data
+        return {
+            "id": agent_run_id,
+            "status": "completed",
+            "prompt": "Test prompt",
+            "repo_id": "repo-1",
+            "model": "gpt-4",
+            "created_at": "2023-01-01T00:00:00Z",
+            "completed_at": "2023-01-01T00:05:00Z",
+            "output": "Test output"
+        }
         
-    def get_agent_run_logs(self, agent_run_id: str, callback: Callable[[List[Dict[str, Any]]], None]):
+    def get_agent_run_logs(self, agent_run_id: str) -> List[Dict[str, Any]]:
         """
-        Get logs for an agent run.
-        
-        Args:
-            agent_run_id: ID of the agent run to get logs for
-            callback: Callback to execute with the logs
-        """
-        if not self.client or not self.state.current_org_id:
-            callback([])
-            return
-            
-        self.submit_task(
-            self._get_agent_run_logs,
-            agent_run_id,
-            on_success=lambda result: callback(result.get("logs", [])),
-            on_error=lambda error: callback([])
-        )
-        
-    def _get_agent_run_logs(self, agent_run_id: str):
-        """
-        Get logs for an agent run.
+        Get agent run logs.
         
         Args:
-            agent_run_id: ID of the agent run to get logs for
+            agent_run_id: Agent run ID
             
         Returns:
             Agent run logs
         """
-        return self.client.agents_alpha.get_agent_run_logs(
-            org_id=self.state.current_org_id,
-            agent_run_id=agent_run_id
-        )
+        # TODO: Implement API call
+        # For now, just return mock data
+        return [
+            {
+                "timestamp": "2023-01-01T00:00:00Z",
+                "level": "INFO",
+                "message": "Agent run started"
+            },
+            {
+                "timestamp": "2023-01-01T00:01:00Z",
+                "level": "INFO",
+                "message": "Processing prompt"
+            },
+            {
+                "timestamp": "2023-01-01T00:05:00Z",
+                "level": "INFO",
+                "message": "Agent run completed"
+            }
+        ]
         
-    def get_organizations(self, callback: Callable[[List[Any]], None]):
+    def get_repository(self, repository_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get organizations.
+        Get a repository.
         
         Args:
-            callback: Callback to execute with the organizations
-        """
-        if not self.client:
-            callback([])
-            return
+            repository_id: Repository ID
             
-        self.submit_task(
-            self._get_organizations,
-            on_success=lambda result: callback(result.items),
-            on_error=lambda error: callback([])
-        )
-        
-    def _get_organizations(self):
-        """
-        Get organizations.
-        
         Returns:
-            Organizations
+            Repository data or None if not found
         """
-        return self.client.organizations.get_organizations()
+        # TODO: Implement API call
+        # For now, just return mock data
+        return {
+            "id": repository_id,
+            "name": "Test Repository",
+            "description": "Test repository description",
+            "url": "https://github.com/test/repo"
+        }
         
-    def set_current_organization(self, org_id: int):
+    def get_organization(self, organization_id: str) -> Optional[Dict[str, Any]]:
         """
-        Set the current organization.
+        Get an organization.
         
         Args:
-            org_id: Organization ID
+            organization_id: Organization ID
+            
+        Returns:
+            Organization data or None if not found
         """
-        self.state.current_org_id = org_id
-        
-        # Refresh data
-        self.event_bus.publish(Event(EventType.REFRESH_REQUESTED, {"type": "all"}))
+        # TODO: Implement API call
+        # For now, just return mock data
+        return {
+            "id": organization_id,
+            "name": "Test Organization",
+            "description": "Test organization description"
+        }
 

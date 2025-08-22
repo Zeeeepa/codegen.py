@@ -2,127 +2,123 @@
 Event system for the Enhanced Codegen UI.
 
 This module provides an event system for the Enhanced Codegen UI,
-allowing components to communicate with each other in a decoupled way.
+allowing components to communicate with each other.
 """
 
-import enum
-import logging
-from dataclasses import dataclass
-from typing import Any, Dict, List, Callable, Optional, Set
+import uuid
+from enum import Enum, auto
+from typing import Dict, Any, List, Optional, Callable
 
 
-class EventType(enum.Enum):
+class EventType(Enum):
     """Event types for the Enhanced Codegen UI."""
     
     # Authentication events
-    LOGIN_REQUESTED = "login_requested"
-    LOGIN_SUCCEEDED = "login_succeeded"
-    LOGIN_FAILED = "login_failed"
-    LOGOUT_REQUESTED = "logout_requested"
-    LOGOUT_SUCCEEDED = "logout_succeeded"
+    LOGIN_REQUESTED = auto()
+    LOGIN_SUCCEEDED = auto()
+    LOGIN_FAILED = auto()
+    LOGOUT_REQUESTED = auto()
     
     # Agent run events
-    AGENT_RUN_REQUESTED = "agent_run_requested"
-    AGENT_RUN_SUCCEEDED = "agent_run_succeeded"
-    AGENT_RUN_FAILED = "agent_run_failed"
-    AGENT_RUN_CANCEL_REQUESTED = "agent_run_cancel_requested"
-    AGENT_RUN_CANCEL_SUCCEEDED = "agent_run_cancel_succeeded"
-    AGENT_RUN_CANCEL_FAILED = "agent_run_cancel_failed"
-    AGENT_RUN_CONTINUE_REQUESTED = "agent_run_continue_requested"
-    AGENT_RUN_CONTINUE_SUCCEEDED = "agent_run_continue_succeeded"
-    AGENT_RUN_CONTINUE_FAILED = "agent_run_continue_failed"
+    AGENT_RUN_REQUESTED = auto()
+    AGENT_RUN_STARTED = auto()
+    AGENT_RUN_SUCCEEDED = auto()
+    AGENT_RUN_FAILED = auto()
+    AGENT_RUN_CANCELLED = auto()
+    AGENT_RUN_CONTINUED = auto()
     
-    # Data loading events
-    AGENT_RUNS_LOADED = "agent_runs_loaded"
-    REPOSITORIES_LOADED = "repositories_loaded"
-    MODELS_LOADED = "models_loaded"
-    LOAD_ERROR = "load_error"
+    # Data events
+    DATA_REQUESTED = auto()
+    DATA_LOADED = auto()
+    DATA_LOAD_FAILED = auto()
+    
+    # Navigation events
+    NAVIGATION_REQUESTED = auto()
+    
+    # Error events
+    ERROR_OCCURRED = auto()
+    
+    # Refresh events
+    REFRESH_REQUESTED = auto()
     
     # UI events
-    REFRESH_REQUESTED = "refresh_requested"
-    VIEW_AGENT_RUN_REQUESTED = "view_agent_run_requested"
-    VIEW_AGENT_RUNS_REQUESTED = "view_agent_runs_requested"
-    VIEW_REPOSITORIES_REQUESTED = "view_repositories_requested"
-    VIEW_CREATE_AGENT_REQUESTED = "view_create_agent_requested"
-    
-    # Organization events
-    ORGANIZATION_CHANGE_REQUESTED = "organization_change_requested"
-    ORGANIZATION_CHANGED = "organization_changed"
+    UI_STATE_CHANGED = auto()
 
 
-@dataclass
 class Event:
-    """
-    Event class for the Enhanced Codegen UI.
+    """Event for the Enhanced Codegen UI."""
     
-    Attributes:
-        type: Event type
-        data: Event data
-    """
-    
-    type: EventType
-    data: Dict[str, Any]
+    def __init__(self, event_type: EventType, data: Optional[Dict[str, Any]] = None):
+        """
+        Initialize the event.
+        
+        Args:
+            event_type: Event type
+            data: Event data
+        """
+        self.event_type = event_type
+        self.data = data or {}
+        self.id = str(uuid.uuid4())
 
 
 class EventBus:
-    """
-    Event bus for the Enhanced Codegen UI.
-    
-    This class provides a central event bus for the Enhanced Codegen UI,
-    allowing components to publish and subscribe to events.
-    """
+    """Event bus for the Enhanced Codegen UI."""
     
     def __init__(self):
         """Initialize the event bus."""
-        self.subscribers = {}
-        self.logger = logging.getLogger(__name__)
+        self._subscribers = {}
         
-    def subscribe(self, event_type: EventType, callback: Callable[[Event], None]) -> None:
+    def subscribe(self, event_type: EventType, handler: Callable[[Event], None]) -> str:
         """
         Subscribe to an event type.
         
         Args:
             event_type: Event type to subscribe to
-            callback: Callback to execute when an event of this type is published
-        """
-        if event_type not in self.subscribers:
-            self.subscribers[event_type] = set()
+            handler: Event handler function
             
-        self.subscribers[event_type].add(callback)
-        self.logger.debug(f"Subscribed to {event_type.value}")
-        
-    def unsubscribe(self, event_type: EventType, callback: Callable[[Event], None]) -> None:
+        Returns:
+            Subscription ID
         """
-        Unsubscribe from an event type.
+        if event_type not in self._subscribers:
+            self._subscribers[event_type] = []
+            
+        subscription_id = str(uuid.uuid4())
+        
+        self._subscribers[event_type].append({
+            "id": subscription_id,
+            "handler": handler
+        })
+        
+        return subscription_id
+        
+    def unsubscribe(self, subscription_id: str) -> bool:
+        """
+        Unsubscribe from an event.
         
         Args:
-            event_type: Event type to unsubscribe from
-            callback: Callback to remove
-        """
-        if event_type in self.subscribers:
-            self.subscribers[event_type].discard(callback)
-            self.logger.debug(f"Unsubscribed from {event_type.value}")
+            subscription_id: Subscription ID to unsubscribe
             
-    def publish(self, event: Event) -> None:
+        Returns:
+            Whether the subscription was found and removed
+        """
+        for event_type, subscribers in self._subscribers.items():
+            for i, subscription in enumerate(subscribers):
+                if subscription["id"] == subscription_id:
+                    self._subscribers[event_type].pop(i)
+                    return True
+        return False
+        
+    def publish(self, event: Event):
         """
         Publish an event.
         
         Args:
             event: Event to publish
         """
-        self.logger.debug(f"Publishing event {event.type.value}")
-        
-        if event.type not in self.subscribers:
-            return
-            
-        for callback in self.subscribers[event.type]:
-            try:
-                callback(event)
-            except Exception as e:
-                self.logger.exception(f"Error in event handler for {event.type.value}: {str(e)}")
-                
-    def clear(self) -> None:
-        """Clear all subscribers."""
-        self.subscribers.clear()
-        self.logger.debug("Cleared all subscribers")
+        if event.event_type in self._subscribers:
+            for subscription in self._subscribers[event.event_type]:
+                try:
+                    subscription["handler"](event)
+                except Exception as e:
+                    print(f"Error handling event {event.event_type}: {str(e)}")
 

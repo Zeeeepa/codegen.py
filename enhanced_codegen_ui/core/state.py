@@ -1,73 +1,108 @@
 """
-Application state for the Enhanced Codegen UI.
+State management for the Enhanced Codegen UI.
 
-This module provides a central state management system for the Enhanced Codegen UI,
-allowing components to access and modify shared state in a controlled way.
+This module provides state management for the Enhanced Codegen UI,
+allowing components to share and update state.
 """
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, Any, Optional, List, Set, Callable
 
 
-class ApplicationState:
-    """
-    Application state for the Enhanced Codegen UI.
-    
-    This class provides a central state management system for the Enhanced Codegen UI,
-    storing shared state like the current organization, agent runs, and repositories.
-    """
+class State:
+    """State for the Enhanced Codegen UI."""
     
     def __init__(self):
-        """Initialize the application state."""
-        # Authentication state
-        self.is_authenticated = False
+        """Initialize the state."""
+        self._state = {}
+        self._listeners = {}
         
-        # Organization state
-        self.current_org_id = None
-        self.organizations = []
-        
-        # Agent run state
-        self.agent_runs = []
-        self.current_agent_run_id = None
-        
-        # Repository state
-        self.repositories = []
-        
-        # Model state
-        self.models = []
-        
-        # UI state
-        self.current_view = "login"
-        
-    def reset(self):
-        """Reset the application state."""
-        self.__init__()
-        
-    def to_dict(self) -> Dict[str, Any]:
+    def get(self, key: str, default: Any = None) -> Any:
         """
-        Convert the application state to a dictionary.
-        
-        Returns:
-            Dict[str, Any]: Application state as a dictionary
-        """
-        return {
-            "is_authenticated": self.is_authenticated,
-            "current_org_id": self.current_org_id,
-            "organizations": self.organizations,
-            "agent_runs": self.agent_runs,
-            "current_agent_run_id": self.current_agent_run_id,
-            "repositories": self.repositories,
-            "models": self.models,
-            "current_view": self.current_view,
-        }
-        
-    def update(self, state_dict: Dict[str, Any]):
-        """
-        Update the application state from a dictionary.
+        Get a state value.
         
         Args:
-            state_dict: Dictionary with state values to update
+            key: State key
+            default: Default value if key not found
+            
+        Returns:
+            State value
         """
-        for key, value in state_dict.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
+        return self._state.get(key, default)
+        
+    def set(self, key: str, value: Any):
+        """
+        Set a state value.
+        
+        Args:
+            key: State key
+            value: State value
+        """
+        old_value = self._state.get(key)
+        self._state[key] = value
+        
+        # Notify listeners if value changed
+        if old_value != value and key in self._listeners:
+            for listener in self._listeners[key]:
+                listener(value, old_value)
+                
+    def delete(self, key: str):
+        """
+        Delete a state value.
+        
+        Args:
+            key: State key
+        """
+        if key in self._state:
+            old_value = self._state[key]
+            del self._state[key]
+            
+            # Notify listeners
+            if key in self._listeners:
+                for listener in self._listeners[key]:
+                    listener(None, old_value)
+                    
+    def clear(self):
+        """Clear all state."""
+        old_state = self._state.copy()
+        self._state = {}
+        
+        # Notify listeners
+        for key, old_value in old_state.items():
+            if key in self._listeners:
+                for listener in self._listeners[key]:
+                    listener(None, old_value)
+                    
+    def listen(self, key: str, listener: Callable[[Any, Any], None]) -> Callable[[], None]:
+        """
+        Listen for state changes.
+        
+        Args:
+            key: State key to listen for
+            listener: Listener function that takes (new_value, old_value)
+            
+        Returns:
+            Function to remove the listener
+        """
+        if key not in self._listeners:
+            self._listeners[key] = set()
+            
+        self._listeners[key].add(listener)
+        
+        def remove_listener():
+            """Remove the listener."""
+            if key in self._listeners and listener in self._listeners[key]:
+                self._listeners[key].remove(listener)
+                if not self._listeners[key]:
+                    del self._listeners[key]
+                    
+        return remove_listener
+        
+    def get_all(self) -> Dict[str, Any]:
+        """
+        Get all state.
+        
+        Returns:
+            All state
+        """
+        return self._state.copy()
 
