@@ -1,10 +1,10 @@
 """
-Codegen UI Package
+Codegen UI package.
 
-This package contains the UI components for the Codegen API client.
+This package provides a Tkinter-based UI for the Codegen Agent API.
 """
 
-from ui.application import CodegenApplication
+from ui.application import Application
 
-__all__ = ["CodegenApplication"]
+__all__ = ["Application"]
 

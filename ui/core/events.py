@@ -1,101 +1,153 @@
 """
 Event system for the Codegen UI.
 
-This module provides an event bus system for communication between UI components.
+This module provides an event system for the Codegen UI, allowing
+components to communicate with each other.
 """
 
-import enum
-from typing import Any, Callable, Dict, List, Optional, Set
+import logging
+from typing import Dict, List, Any, Optional, Callable
+from enum import Enum, auto
 
+logger = logging.getLogger(__name__)
 
-class EventType(enum.Enum):
-    """Event types for the Codegen UI."""
+class EventType(Enum):
+    """Event types."""
     
-    # Application events
-    APP_INIT = "app_init"
-    APP_EXIT = "app_exit"
+    # Authentication
+    LOGIN = auto()
+    LOGOUT = auto()
     
-    # Authentication events
-    LOGIN = "login"
-    LOGIN_SUCCESS = "login_success"
-    LOGIN_FAILURE = "login_failure"
-    LOGOUT = "logout"
+    # Agent runs
+    AGENT_RUN_CREATED = auto()
+    AGENT_RUN_UPDATED = auto()
+    AGENT_RUN_COMPLETED = auto()
+    AGENT_RUN_ERROR = auto()
+    AGENT_RUN_PAUSED = auto()
+    AGENT_RUN_RESUMED = auto()
+    AGENT_RUN_STARRED = auto()
+    AGENT_RUN_UNSTARRED = auto()
     
-    # Navigation events
-    NAVIGATE = "navigate"
+    # Projects
+    PROJECT_STARRED = auto()
+    PROJECT_UNSTARRED = auto()
     
-    # Agent events
-    AGENT_RUN_CREATED = "agent_run_created"
-    AGENT_RUN_UPDATED = "agent_run_updated"
-    AGENT_RUN_COMPLETED = "agent_run_completed"
-    AGENT_RUN_FAILED = "agent_run_failed"
+    # Templates
+    TEMPLATE_CREATED = auto()
+    TEMPLATE_UPDATED = auto()
+    TEMPLATE_DELETED = auto()
     
-    # UI events
-    UI_REFRESH = "ui_refresh"
-    UI_ERROR = "ui_error"
-    UI_SUCCESS = "ui_success"
-    UI_WARNING = "ui_warning"
-    UI_INFO = "ui_info"
-
+    # ProRun configurations
+    PRORUN_CONFIG_CREATED = auto()
+    PRORUN_CONFIG_UPDATED = auto()
+    PRORUN_CONFIG_DELETED = auto()
+    
+    # Notifications
+    NOTIFICATION_RECEIVED = auto()
+    
+    # Refresh
+    REFRESH_REQUESTED = auto()
 
 class Event:
-    """Event class for the Codegen UI."""
+    """
+    Event class.
     
-    def __init__(self, event_type: EventType, data: Optional[Any] = None):
+    This class represents an event in the Codegen UI.
+    """
+    
+    def __init__(self, type: str, data: Dict[str, Any]):
         """
-        Initialize an event.
+        Initialize the event.
         
         Args:
-            event_type: The type of event.
-            data: Optional data associated with the event.
+            type: Event type
+            data: Event data
         """
-        self.event_type = event_type
+        self.type = type
         self.data = data
-
+    
+    def __str__(self) -> str:
+        """
+        Get string representation.
+        
+        Returns:
+            String representation
+        """
+        return f"Event(type={self.type}, data={self.data})"
+    
+    def __repr__(self) -> str:
+        """
+        Get string representation.
+        
+        Returns:
+            String representation
+        """
+        return self.__str__()
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get event data.
+        
+        Args:
+            key: Data key
+            default: Default value if key not found
+            
+        Returns:
+            Event data
+        """
+        return self.data.get(key, default)
 
 class EventBus:
-    """Event bus for the Codegen UI."""
+    """
+    Event bus class.
+    
+    This class provides an event bus for the Codegen UI, allowing
+    components to communicate with each other.
+    """
     
     def __init__(self):
         """Initialize the event bus."""
-        self._subscribers: Dict[EventType, List[Callable[[Event], None]]] = {}
+        self.subscribers = {}
     
-    def subscribe(self, event_type: EventType, callback: Callable[[Event], None]):
+    def subscribe(self, event_type: str, callback: Callable[[Event], None]) -> None:
         """
-        Subscribe to an event type.
+        Subscribe to an event.
         
         Args:
-            event_type: The event type to subscribe to.
-            callback: The callback function to call when the event is published.
+            event_type: Event type
+            callback: Callback function
         """
-        if event_type not in self._subscribers:
-            self._subscribers[event_type] = []
+        if event_type not in self.subscribers:
+            self.subscribers[event_type] = []
         
-        self._subscribers[event_type].append(callback)
+        self.subscribers[event_type].append(callback)
     
-    def unsubscribe(self, event_type: EventType, callback: Callable[[Event], None]):
+    def unsubscribe(self, event_type: str, callback: Callable[[Event], None]) -> None:
         """
-        Unsubscribe from an event type.
+        Unsubscribe from an event.
         
         Args:
-            event_type: The event type to unsubscribe from.
-            callback: The callback function to unsubscribe.
+            event_type: Event type
+            callback: Callback function
         """
-        if event_type in self._subscribers:
-            self._subscribers[event_type].remove(callback)
+        if event_type in self.subscribers:
+            self.subscribers[event_type].remove(callback)
     
-    def publish(self, event: Event):
+    def publish(self, event: Event) -> None:
         """
         Publish an event.
         
         Args:
-            event: The event to publish.
+            event: Event
         """
-        if event.event_type in self._subscribers:
-            for callback in self._subscribers[event.event_type]:
-                callback(event)
+        if event.type in self.subscribers:
+            for callback in self.subscribers[event.type]:
+                try:
+                    callback(event)
+                except Exception as e:
+                    logger.error(f"Error in event callback: {e}")
     
-    def clear(self):
+    def clear(self) -> None:
         """Clear all subscribers."""
-        self._subscribers.clear()
+        self.subscribers = {}
 
