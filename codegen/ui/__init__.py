@@ -117,9 +117,9 @@ class CodegenTkApp:
         """Initialize the UI with saved settings."""
         # Load the API key from settings
         try:
-            from codegen.config.client_config import ClientConfig
+            from backend.core.config.client_config import ClientConfig
             config = ClientConfig()
-            api_key = config.api_key
+            api_key = config.api_token
             if api_key:
                 self.api_key_entry.insert(0, api_key)
         except ImportError:
@@ -135,9 +135,9 @@ class CodegenTkApp:
             return
         
         try:
-            from codegen.config.client_config import ClientConfig
+            from backend.core.config.client_config import ClientConfig
             config = ClientConfig()
-            config.api_key = api_key
+            config.api_token = api_key
             config.save()
             messagebox.showinfo("Success", "API key saved successfully.")
         except ImportError:
@@ -160,8 +160,8 @@ class CodegenTkApp:
             return
         
         try:
-            from codegen.api.client import CodegenClient
-            client = CodegenClient(api_key=api_key)
+            from backend.client.endpoints.agents import CodegenClient
+            client = CodegenClient(ClientConfig(api_token=api_key))
             agent_runs = client.list_agent_runs()
             
             for run in agent_runs:
@@ -195,8 +195,8 @@ class CodegenTkApp:
             return
         
         try:
-            from codegen.api.client import CodegenClient
-            client = CodegenClient(api_key=api_key)
+            from backend.client.endpoints.agents import CodegenClient
+            client = CodegenClient(ClientConfig(api_token=api_key))
             agent_run = client.create_agent_run(prompt=prompt)
             
             messagebox.showinfo("Success", f"Agent run created successfully. ID: {agent_run.id}")
@@ -213,4 +213,3 @@ class CodegenTkApp:
 class CodegenApp(CodegenTkApp):
     """Alias for CodegenTkApp for backward compatibility."""
     pass
-

@@ -24,7 +24,7 @@ setup(
     ],
     extras_require={
         "async": ["aiohttp>=3.7.0"],
-        "ui": ["tkinter; extra == 'ui'"],  # tkinter is part of the standard library
+        # tkinter is part of the standard library, so no need to include it
         "dev": [
             "pytest>=6.0.0",
             "black>=21.5b2",
@@ -53,4 +53,3 @@ setup(
     ],
     python_requires=">=3.7",
 )
-
