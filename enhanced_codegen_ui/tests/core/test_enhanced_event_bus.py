@@ -259,7 +259,9 @@ class TestEnhancedEventBus:
         assert "errors" in metrics
         assert metrics["published"][EventType.AGENT_RUN_REQUESTED] == 1
         assert metrics["handled"][EventType.AGENT_RUN_REQUESTED] == 1
-        assert metrics["errors"][EventType.AGENT_RUN_REQUESTED] == 0
+        # The errors counter might not have the specific event type if no errors occurred
+        # Just check that the errors category exists
+        assert EventType.AGENT_RUN_REQUESTED not in metrics["errors"] or metrics["errors"][EventType.AGENT_RUN_REQUESTED] == 0
         
     def test_get_history(self):
         """Test getting event history."""
@@ -336,4 +338,3 @@ class TestEnhancedEventBus:
         assert event_bus._metrics["published"] == Counter()
         assert event_bus._metrics["handled"] == Counter()
         assert event_bus._metrics["errors"] == Counter()
-
