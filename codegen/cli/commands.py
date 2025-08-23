@@ -14,10 +14,10 @@ from rich.table import Table
 from rich.live import Live
 from rich.panel import Panel
 
-from codegen.client.sync import CodegenClient
-from codegen.config.client_config import ClientConfig
-from codegen.exceptions.api_exceptions import CodegenAPIError, NotFoundError
-from codegen.cli.formatters import format_log_entry
+from backend.core.client.sync import CodegenClient
+from backend.core.config.client_config import ClientConfig
+from backend.core.exceptions.api_exceptions import CodegenAPIError, NotFoundError
+from backend.cli.formatters import format_log_entry
 
 # Create Typer app
 app = typer.Typer(
@@ -266,4 +266,3 @@ def continue_run(
             f"[bold red]Error: The organization ID '{client.config.org_id}' is not a valid integer.[/bold red]"
         )
         raise typer.Exit(code=1)
-

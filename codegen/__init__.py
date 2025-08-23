@@ -54,8 +54,8 @@ from backend.core.config.presets import ConfigPresets
 # Import common models and exceptions for convenience
 from backend.core.models.enums import SourceType, MessageType, AgentRunStatus, LogLevel
 from backend.core.exceptions.api_exceptions import (
+    CodegenAPIError as ValidationError,  # Alias for backward compatibility
     CodegenAPIError,
-    ValidationError,
     RateLimitError,
     AuthenticationError,
     NotFoundError,
