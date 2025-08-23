@@ -2,12 +2,23 @@
 Client for the Agents Alpha API endpoints.
 """
 
-from typing import Any, Dict, Optional
-
-from codegen_client.models.agents import AgentRunResponse
+from typing import Any, Dict, Optional, List
 
 
-class AgentsAlphaClient:
+class AgentRunResponse:
+    """Response model for agent run operations."""
+    
+    def __init__(self, data: Dict[str, Any]):
+        """Initialize from dictionary data."""
+        self.data = data
+    
+    @classmethod
+    def parse_obj(cls, data: Dict[str, Any]) -> 'AgentRunResponse':
+        """Parse from dictionary data."""
+        return cls(data)
+
+
+class AsyncCodegenClient:
     """
     Client for the Agents Alpha API endpoints.
 
@@ -59,4 +70,3 @@ class AgentsAlphaClient:
         )
         
         return AgentRunResponse.parse_obj(response_data)
-

@@ -6,7 +6,104 @@ This module provides an endpoint for interacting with agents.
 
 from typing import Dict, List, Any, Optional
 
-from backend.core import ClientConfig
+from backend.core.config.client_config import ClientConfig
+
+
+class CodegenClient:
+    """Client for interacting with the Codegen API."""
+    
+    def __init__(self, config: Optional[ClientConfig] = None):
+        """Initialize the Codegen client.
+        
+        Args:
+            config: The client configuration. If not provided, a default configuration will be used.
+        """
+        self.config = config or ClientConfig()
+        self.agents = AgentEndpoint(self.config)
+    
+    def create_agent_run(self, org_id: int, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Create a new agent run.
+        
+        Args:
+            org_id: The organization ID.
+            prompt: The prompt for the agent.
+            **kwargs: Additional parameters for the agent run.
+            
+        Returns:
+            The created agent run data.
+        """
+        # This is a placeholder implementation
+        return {
+            "id": "run-1",
+            "org_id": org_id,
+            "prompt": prompt,
+            "status": "running",
+            "created_at": "2023-01-01T00:00:00Z",
+            "updated_at": "2023-01-01T00:00:00Z",
+        }
+    
+    def get_agent_run(self, org_id: int, agent_run_id: str) -> Dict[str, Any]:
+        """Get an agent run by ID.
+        
+        Args:
+            org_id: The organization ID.
+            agent_run_id: The ID of the agent run.
+            
+        Returns:
+            The agent run data.
+        """
+        # This is a placeholder implementation
+        return {
+            "id": agent_run_id,
+            "org_id": org_id,
+            "prompt": "Sample prompt",
+            "status": "completed",
+            "created_at": "2023-01-01T00:00:00Z",
+            "updated_at": "2023-01-01T00:00:00Z",
+        }
+    
+    def get_agent_run_logs(self, org_id: int, agent_run_id: str) -> List[Dict[str, Any]]:
+        """Get logs for an agent run.
+        
+        Args:
+            org_id: The organization ID.
+            agent_run_id: The ID of the agent run.
+            
+        Returns:
+            A list of log entries.
+        """
+        # This is a placeholder implementation
+        return [
+            {
+                "id": "log-1",
+                "agent_run_id": agent_run_id,
+                "message": "Starting agent run",
+                "level": "info",
+                "timestamp": "2023-01-01T00:00:00Z",
+            },
+            {
+                "id": "log-2",
+                "agent_run_id": agent_run_id,
+                "message": "Agent run completed",
+                "level": "info",
+                "timestamp": "2023-01-01T00:00:01Z",
+            },
+        ]
+    
+    def get_current_user(self) -> Dict[str, Any]:
+        """Get the current user.
+        
+        Returns:
+            The current user data.
+        """
+        # This is a placeholder implementation
+        return {
+            "id": "user-1",
+            "name": "Test User",
+            "email": "test@example.com",
+            "created_at": "2023-01-01T00:00:00Z",
+            "updated_at": "2023-01-01T00:00:00Z",
+        }
 
 
 class AgentEndpoint:
@@ -110,4 +207,3 @@ class AgentEndpoint:
         """
         # This is a placeholder implementation
         return True
-

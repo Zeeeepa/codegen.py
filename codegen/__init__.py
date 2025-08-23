@@ -48,11 +48,11 @@ warnings.warn(
 # Import from backend (new structure)
 from backend.client.endpoints.agents import CodegenClient
 from backend.client.endpoints.agents_alpha import AsyncCodegenClient
-from backend.core.config.client_config import ClientConfig
-from backend.core.config.presets import ConfigPresets
+from backend.core.config.client_config import ClientConfig, ConfigPresets
 
 # Import common models and exceptions for convenience
-from backend.core.models.enums import SourceType, MessageType, AgentRunStatus, LogLevel
+from backend.core.models.enums import AgentRunStatus, MessageType, LogLevel
+SourceType = AgentRunStatus  # Placeholder for backward compatibility
 from backend.core.exceptions.api_exceptions import (
     CodegenAPIError as ValidationError,  # Alias for backward compatibility
     CodegenAPIError,

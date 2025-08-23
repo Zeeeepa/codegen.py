@@ -14,8 +14,7 @@ import typer
 from rich.console import Console
 
 from backend.api import app as api_app
-from backend.core.config.client_config import ClientConfig
-from backend.core.config.presets import ConfigPresets
+from backend.core.config.client_config import ClientConfig, ConfigPresets
 from frontend.views import MainFrame
 
 
