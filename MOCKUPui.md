@@ -448,7 +448,7 @@ The Settings tab allows configuring API tokens and other settings.
 | [sk-ce027fa7-3c8d-4beb-8c86-ed8ae982ac99                ]   |
 |                                                              |
 | GITHUB_TOKEN:                                                |
-| [ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0            ]   |
+| [****************************************                ]   |
 |                                                              |
 | UI Settings:                                                 |
 |                                                              |
