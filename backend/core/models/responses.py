@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
 
-from codegen.models.enums import SourceType
+from backend.core.models.enums import SourceType
 
 
 @dataclass
@@ -152,4 +152,3 @@ class BulkOperationResult:
     duration_seconds: float
     errors: List[Dict[str, Any]]
     results: List[Any]
-

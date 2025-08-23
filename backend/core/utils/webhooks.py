@@ -11,8 +11,8 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Callable, Optional
 
-from codegen.models.webhooks import WebhookEvent
-from codegen.exceptions.api_exceptions import WebhookError
+from backend.core.models.webhooks import WebhookEvent
+from backend.core.exceptions.api_exceptions import WebhookError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -145,4 +145,3 @@ class WebhookHandler:
         """Clear all registered middleware."""
         self.middleware.clear()
         logger.debug("Cleared all webhook middleware")
-

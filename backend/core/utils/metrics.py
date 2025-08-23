@@ -10,7 +10,7 @@ from datetime import datetime
 from threading import Lock
 from typing import Dict, List, Any, Optional
 
-from codegen.models.responses import RequestMetrics, ClientStats
+from backend.core.models.responses import RequestMetrics, ClientStats
 
 
 class MetricsTracker:
@@ -122,4 +122,3 @@ class MetricsTracker:
             self.total_duration = 0.0
             self.status_code_distribution.clear()
             self.recent_requests.clear()
-
