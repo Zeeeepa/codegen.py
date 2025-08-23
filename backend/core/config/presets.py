@@ -4,7 +4,7 @@ Configuration presets for the Codegen API client.
 This module contains predefined configuration presets for common use cases.
 """
 
-from codegen.config.client_config import ClientConfig
+from backend.core.config.client_config import ClientConfig
 
 
 class ConfigPresets:
@@ -76,4 +76,3 @@ class ConfigPresets:
             cache_ttl=600,  # 10 minutes
             max_cache_size=200,
         )
-

@@ -7,7 +7,7 @@ This module serves as the entry point for the Codegen UI.
 
 import tkinter as tk
 
-from frontend import MainFrame
+from frontend.ui import MainFrame
 
 
 def main():
@@ -21,4 +21,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

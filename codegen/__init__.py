@@ -4,6 +4,9 @@ Codegen API - Python client for the Codegen Agent API.
 This package provides a Python client for interacting with the Codegen Agent API,
 allowing you to create and manage agent runs, view logs, and more.
 
+DEPRECATED: This module is maintained for backward compatibility.
+Please use the 'backend' and 'frontend' modules directly in new code.
+
 Basic usage:
     from codegen import CodegenClient, ClientConfig
     
@@ -34,16 +37,25 @@ For async usage:
         # ...
 """
 
-# Import main client classes for easy access
-from codegen.client.sync import CodegenClient
-from codegen.client.async_client import AsyncCodegenClient
-from codegen.config.client_config import ClientConfig, ConfigPresets
+import warnings
+
+warnings.warn(
+    "The 'codegen' module is deprecated. Please use 'backend' and 'frontend' modules instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Import from backend (new structure)
+from backend.client.endpoints.agents import CodegenClient
+from backend.client.endpoints.agents_alpha import AsyncCodegenClient
+from backend.core.config.client_config import ClientConfig
+from backend.core.config.presets import ConfigPresets
 
 # Import common models and exceptions for convenience
-from codegen.models.enums import SourceType, MessageType, AgentRunStatus, LogLevel
-from codegen.exceptions.api_exceptions import (
+from backend.core.models.enums import SourceType, MessageType, AgentRunStatus, LogLevel
+from backend.core.exceptions.api_exceptions import (
+    CodegenAPIError as ValidationError,  # Alias for backward compatibility
     CodegenAPIError,
-    ValidationError,
     RateLimitError,
     AuthenticationError,
     NotFoundError,
@@ -68,4 +80,3 @@ __all__ = [
     "AuthenticationError",
     "NotFoundError",
 ]
-
