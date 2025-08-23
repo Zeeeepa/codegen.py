@@ -13,7 +13,8 @@ This document provides comprehensive UI mockups for the Codegen Agent API UI imp
 7. [Projects Tab](#projects-tab)
 8. [Prompt Templates Management](#prompt-templates-management)
 9. [Settings Tab](#settings-tab)
-10. [Function Flows](#function-flows)
+10. [CLI Integration](#cli-integration)
+11. [Function Flows](#function-flows)
 
 ## Main Application Layout
 
@@ -215,6 +216,10 @@ When clicking on the "Create New Run" button, a dialog opens to create a new age
 |   Google:                                                    |
 |   - Gemini 2.5                                               |
 |                                                              |
+| [✓] ProRun Mode                                              |
+|     Generate multiple responses and synthesize best result   |
+|     Number of candidates: [10 ▼]                             |
+|                                                              |
 | Prompt:                                                      |
 | +----------------------------------------------------------+ |
 | |                                                          | |
@@ -224,7 +229,21 @@ When clicking on the "Create New Run" button, a dialog opens to create a new age
 | +----------------------------------------------------------+ |
 |                                                              |
 +--------------------------------------------------------------+
-| [Create Run] [Cancel]                                        |
+| [Create Run] [Cancel] [CLI Command ▼]                        |
++--------------------------------------------------------------+
+```
+
+### CLI Command Dropdown
+
+When clicking on the "CLI Command" dropdown, it shows the equivalent CLI command:
+
+```
++--------------------------------------------------------------+
+| CLI Command:                                                 |
+| codegen agent --prompt "Your prompt text" --model "gpt-5"    |
+| --repo-id 123 --prorun --candidates 10                       |
++--------------------------------------------------------------+
+| [Copy to Clipboard]                                          |
 +--------------------------------------------------------------+
 ```
 
@@ -460,8 +479,60 @@ The Settings tab allows configuring API tokens and other settings.
 | Default Model:                                               |
 | [CLAUDE SONNET 3.5 ▼]                                        |
 |                                                              |
+| CLI Integration:                                             |
+| [✓] Enable CLI integration                                   |
+| CLI Path: [/usr/local/bin/codegen                       ]    |
+|                                                              |
 +--------------------------------------------------------------+
 | [Save Settings] [Reset to Defaults]                          |
++--------------------------------------------------------------+
+```
+
+## CLI Integration
+
+The UI provides integration with the Codegen CLI, allowing users to view and copy CLI commands for various actions.
+
+### CLI Command Generation
+
+When performing actions in the UI, equivalent CLI commands are displayed:
+
+```
++--------------------------------------------------------------+
+| Creating Agent Run                                           |
++--------------------------------------------------------------+
+| Equivalent CLI Command:                                      |
+| codegen agent --prompt "Fix the login form bug" --model      |
+| "claude-sonnet-3.5" --repo-id 123                            |
++--------------------------------------------------------------+
+| [Copy to Clipboard] [Run in Terminal]                        |
++--------------------------------------------------------------+
+```
+
+### CLI Command Builder
+
+A dedicated CLI command builder is available for advanced users:
+
+```
++--------------------------------------------------------------+
+| CLI Command Builder                                          |
++--------------------------------------------------------------+
+|                                                              |
+| Command: [agent ▼]                                           |
+|                                                              |
+| Options:                                                     |
+| [✓] --prompt     ["Fix the login form bug"              ]    |
+| [✓] --model      ["claude-sonnet-3.5"                   ]    |
+| [✓] --repo-id    [123                                   ]    |
+| [ ] --org-id     [                                      ]    |
+| [✓] --prorun                                                 |
+| [✓] --candidates [10                                    ]    |
+|                                                              |
+| Generated Command:                                           |
+| codegen agent --prompt "Fix the login form bug" --model      |
+| "claude-sonnet-3.5" --repo-id 123 --prorun --candidates 10   |
+|                                                              |
++--------------------------------------------------------------+
+| [Copy to Clipboard] [Run in Terminal] [Save as Alias]        |
 +--------------------------------------------------------------+
 ```
 
@@ -491,6 +562,31 @@ The Settings tab allows configuring API tokens and other settings.
 +----------------+     +----------------+     +----------------+
 ```
 
+### ProRun Mode Flow
+
+```
++----------------+     +----------------+     +----------------+
+| User enables   |     | User sets      |     | User submits   |
+| ProRun mode    |---->| number of      |---->| the agent run  |
+| checkbox       |     | candidates     |     | form           |
++----------------+     +----------------+     +----------------+
+        |                                             |
+        v                                             v
++----------------+     +----------------+     +----------------+
+| API creates    |     | Multiple model |     | System         |
+| ProRun job     |<----| instances run  |<----| synthesizes    |
+| in backend     |     | in parallel    |     | best response  |
++----------------+     +----------------+     +----------------+
+        |
+        v
++----------------+     +----------------+     +----------------+
+| UI shows       |     | UI displays    |     | User can view  |
+| progress of    |---->| final          |---->| all candidate  |
+| synthesis      |     | synthesized    |     | responses      |
++----------------+     | result         |     |                |
+                       +----------------+     +----------------+
+```
+
 ### Live Log Streaming Flow
 
 ```
@@ -515,20 +611,27 @@ The Settings tab allows configuring API tokens and other settings.
 +----------------+     +----------------+     +----------------+
 ```
 
-### Starring an Agent Run Flow
+### CLI Integration Flow
 
 ```
 +----------------+     +----------------+     +----------------+
-| User clicks    |     | UI updates     |     | Backend stores |
-| star icon on   |---->| star icon to   |---->| starred status |
-| agent run      |     | filled state   |     | for the run    |
+| User performs  |     | UI generates   |     | User copies    |
+| action in UI   |---->| equivalent     |---->| CLI command    |
+|                |     | CLI command    |     | to clipboard   |
++----------------+     +----------------+     +----------------+
+        |                                             |
+        v                                             v
++----------------+     +----------------+     +----------------+
+| User pastes    |     | CLI executes   |     | UI detects     |
+| command in     |---->| command and    |---->| CLI-initiated  |
+| terminal       |     | calls API      |     | action         |
 +----------------+     +----------------+     +----------------+
         |
         v
 +----------------+     +----------------+
-| Run appears in |     | User can assign|
-| Starred        |---->| run to a       |
-| Dashboard      |     | project        |
+| UI updates to  |     | UI and CLI     |
+| reflect CLI    |---->| remain in      |
+| action         |     | sync           |
 +----------------+     +----------------+
 ```
 
