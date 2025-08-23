@@ -17,6 +17,27 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/codegen-sh/codegen-client",
     packages=find_packages(),
+    install_requires=[
+        "requests>=2.25.0",
+        "typer>=0.4.0",
+        "rich>=10.0.0",
+    ],
+    extras_require={
+        "async": ["aiohttp>=3.7.0"],
+        "ui": ["tkinter"],
+        "dev": [
+            "pytest>=6.0.0",
+            "black>=21.5b2",
+            "isort>=5.9.1",
+            "mypy>=0.812",
+            "flake8>=3.9.2",
+        ],
+    },
+    entry_points={
+        "console_scripts": [
+            "codegen=codegen.cli:app",
+        ],
+    },
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -33,5 +54,6 @@ setup(
         "httpx>=0.23.0",
         "pydantic>=1.9.0",
     ],
+
 )
 
