@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "codegenapi": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/your/project/mcp",
+        "run",
+        "server.py"
+      ],
+      "env": {
+        "CODEGEN_API_TOKEN": "your_api_token_here",
+        "CODEGEN_ORG_ID": "your_org_id_here"
+      }
+    }
+  }
+}
+
