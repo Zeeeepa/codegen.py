@@ -15,7 +15,7 @@ from rich.console import Console
 
 from backend import app as api_app
 from backend.core import ClientConfig, ConfigPresets
-from frontend import MainFrame
+from frontend.views import MainFrame
 
 
 console = Console()
@@ -80,11 +80,11 @@ def config(
             return
     
     if api_key:
-        config.api_key = api_key
+        config.api_token = api_key
         console.print("[bold green]API key updated.[/bold green]")
     
     if api_url:
-        config.api_url = api_url
+        config.base_url = api_url
         console.print("[bold green]API URL updated.[/bold green]")
     
     config.save()
@@ -106,4 +106,3 @@ def main(args: Optional[List[str]] = None):
 
 if __name__ == "__main__":
     main()
-

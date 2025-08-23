@@ -7,7 +7,7 @@ This module serves as the entry point for the Codegen UI.
 
 import tkinter as tk
 
-from frontend.ui import MainFrame
+from frontend.views import MainFrame
 
 
 def main():
