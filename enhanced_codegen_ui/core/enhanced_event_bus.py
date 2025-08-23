@@ -53,6 +53,10 @@ class TypedEvent:
         try:
             schema.validate(self.data)
             return True
+        except ValueError as e:
+            logging.error(f"Event validation error: {str(e)}")
+            # Re-raise the exception to be caught by the caller
+            raise
         except Exception as e:
             logging.error(f"Event validation error: {str(e)}")
             return False
@@ -76,6 +80,10 @@ class EnhancedEventBus:
         self._subscribers = {}
         self._event_history = deque(maxlen=history_size)
         self._metrics = defaultdict(Counter)
+        # Initialize metrics categories to ensure they exist even if empty
+        self._metrics["published"] = Counter()
+        self._metrics["handled"] = Counter()
+        self._metrics["errors"] = Counter()
         self.logger = logging.getLogger(__name__)
         
     def subscribe(self, event_type: EventType, handler: Callable[[TypedEvent], None], priority: int = 0) -> str:
@@ -171,4 +179,7 @@ class EnhancedEventBus:
         self._subscribers = {}
         self._event_history.clear()
         self._metrics = defaultdict(Counter)
-
+        # Re-initialize metrics categories
+        self._metrics["published"] = Counter()
+        self._metrics["handled"] = Counter()
+        self._metrics["errors"] = Counter()
