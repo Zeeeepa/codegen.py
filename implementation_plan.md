@@ -1,117 +1,228 @@
-# Codegen Agent API UI Implementation Plan
+# Codegen UI Implementation Plan
 
-Based on the revised requirements and API endpoint analysis, here's a streamlined implementation plan for the Codegen Agent API UI.
+## Overview
 
-## 1. Core Architecture (3 days)
+After analyzing the codebase, I've identified multiple UI implementations with overlapping functionality. This plan outlines the approach to consolidate these implementations into a single, comprehensive Tkinter UI that meets all requirements.
 
-### Phase 1: Backend Client Implementation (1.5 days)
-- Create a unified backend client that interfaces with all Codegen API endpoints
-- Implement proper authentication and error handling
-- Add support for local storage of starred runs and projects
-- Create models for all data types (agent runs, projects, etc.)
-- Implement WebSocket or polling mechanisms for real-time log streaming
+## Feature Matrix
 
-### Phase 2: UI Framework Setup (1.5 days)
-- Set up the Tkinter UI framework with proper styling
-- Implement the main application layout with header, navigation sidebar, and content area
-- Create the event system for communication between components
-- Implement state management for application data
-- Set up the controller to coordinate between UI and backend
+| Feature | codegen_ui | enhanced_codegen_ui | enhanced_ui | ui |
+|---------|------------|---------------------|-------------|-----|
+| Agent Runs List | ✅ | ✅ | ✅ | ✅ |
+| Agent Run Detail | ✅ | ✅ | ✅ | ✅ |
+| Live Logs | ✅ | ✅ | ✅ | ✅ |
+| Tools Used | ❌ | ✅ | ✅ | ✅ |
+| Timeline | ❌ | ✅ | ✅ | ✅ |
+| Create Agent Run | ✅ | ✅ | ✅ | ✅ |
+| ProRun Mode | ❌ | ❌ | ✅ | ✅ |
+| Starred Runs | ❌ | ✅ | ✅ | ✅ |
+| Projects | ✅ | ✅ | ✅ | ✅ |
+| Templates | ❌ | ❌ | ✅ | ✅ |
+| Settings | ❌ | ✅ | ✅ | ✅ |
+| CLI Integration | ❌ | ❌ | ✅ | ✅ |
 
-## 2. Agent Runs Tab Implementation (4 days)
+## Consolidation Approach
 
-### Phase 1: Agent Runs List View (2 days)
-- Create the agent runs list view with filtering and search
-- Implement the agent run card component with detailed status indicators
-- Add starring functionality for agent runs
-- Implement pagination for large lists of runs
-- Add real-time status updates via WebSocket or polling
-- Display time in hours and minutes only (no dates unless specifically requested)
+Based on the feature matrix, I'll use the `enhanced_ui` implementation as the base since it has the most complete feature set and aligns best with the mockups. The consolidation will follow these steps:
 
-### Phase 2: Agent Run Detail View with Live Streaming (2 days)
-- Create the agent run detail view with tabs for details, logs, and output
-- Implement log streaming with real-time updates showing:
-  - Each ACTION with tool name, input, and output
-  - Agent's thought process for each step
-  - Error messages and warnings
-  - Plan evaluations and final answers
-- Add visual indicators for different log types (ACTION, PLAN_EVALUATION, ERROR, etc.)
-- Add controls for resuming and stopping agent runs
-- Implement log filtering by type (ACTION, ERROR, etc.)
-- Add starring functionality from the detail view
+1. **Create Unified API Client**
+   - Use `codegen_ui_new/api_client.py` as the base
+   - Ensure all required endpoints are supported
+   - Implement robust error handling and authentication
 
-## 3. Projects Tab Implementation (3 days)
+2. **Consolidate Core Components**
+   - Use `enhanced_ui/application.py` as the main application entry point
+   - Consolidate event system from `enhanced_ui/core/events.py`
+   - Consolidate state management from `enhanced_ui/core/state.py`
 
-### Phase 1: Projects List View (1.5 days)
-- Create the projects list view with filtering and search
-- Implement the project card component with setup command indicators
-- Add starring functionality for projects
-- Implement pagination for large lists of projects
+3. **Implement UI Components**
+   - Create main window with navigation sidebar
+   - Implement agent runs tab with list view and filtering
+   - Implement agent run detail view with live logs, tools used, and timeline
+   - Implement create new run dialog with ProRun mode
+   - Implement starred runs dashboard
+   - Implement projects tab with setup commands
+   - Implement templates management
+   - Implement settings tab
 
-### Phase 2: Project Detail View (1.5 days)
-- Create the project detail view with tabs for details, setup commands, and agent runs
-- Implement setup command generation functionality
-- Add controls for creating new agent runs for the project
-- Display associated agent runs with detailed status indicators
-- Add starring functionality from the detail view
+4. **Add ProRun Mode**
+   - Implement ProRun configuration in create new run dialog
+   - Add agent model selectors
+   - Add synthesis template selection
+   - Implement save/load ProRun configuration
 
-## 4. Starred Dashboard Implementation (3 days)
+5. **Implement CLI Integration**
+   - Add CLI command generation
+   - Add CLI command builder
+   - Add copy to clipboard functionality
 
-### Phase 1: Starred Runs View (1.5 days)
-- Create the starred runs view with filtering and search
-- Implement the starred run card component with detailed status indicators
-- Add controls for managing starred runs (unstar, resume, stop)
-- Implement project assignment functionality for starred runs
-- Add real-time status updates for starred runs
+## Implementation Details
 
-### Phase 2: Starred Projects View (1.5 days)
-- Create the starred projects view with filtering and search
-- Implement the starred project card component with associated runs
-- Add controls for managing starred projects (unstar, create run)
-- Display associated agent runs with detailed status indicators
-- Add real-time status updates for associated runs
+### Main Application Structure
 
-## 5. Header and Active Runs Implementation (2 days)
+```python
+class CodegenApplication:
+    def __init__(self):
+        # Initialize controller and API client
+        self.config = Config()
+        self.api_client = APIClient(self.config)
+        self.controller = Controller(self.api_client)
+        
+        # Initialize UI
+        self.root = tk.Tk()
+        self.root.title("Codegen Agent API")
+        self.root.geometry("1200x800")
+        self.root.minsize(800, 600)
+        
+        # Set theme and styles
+        self._configure_styles()
+        
+        # Create main window
+        self.main_window = MainWindow(self.root, self.controller)
+        
+        # Set up event handlers
+        self._setup_event_handlers()
+```
 
-### Phase 1: Active Runs Display (1 day)
-- Create the active runs display in the header
-- Implement real-time status updates for active runs
-- Add quick access to run details and controls
-- Display detailed status information for each active run
+### Navigation Structure
 
-### Phase 2: User and Settings Menu (1 day)
-- Implement user profile and settings menu
-- Add organization selection functionality
-- Implement application settings
-- Add notification preferences for run completion/failure
+```python
+class MainWindow:
+    def __init__(self, root, controller):
+        # Create main frame
+        self.main_frame = ttk.Frame(root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Create header
+        self.header = Header(self.main_frame, controller)
+        self.header.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+        
+        # Create content area
+        self.content_frame = ttk.Frame(self.main_frame)
+        self.content_frame.pack(fill=tk.BOTH, expand=True, padx=PADDING, pady=PADDING)
+        
+        # Create sidebar
+        self.sidebar = Sidebar(self.content_frame, controller)
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=(0, PADDING))
+        
+        # Create main content area
+        self.content_area = ttk.Frame(self.content_frame)
+        self.content_area.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        
+        # Create frames
+        self.agent_runs_frame = AgentRunsFrame(self.content_area, controller)
+        self.agent_run_detail_frame = AgentRunDetailFrame(self.content_area, controller)
+        self.starred_dashboard_frame = StarredDashboardFrame(self.content_area, controller)
+        self.projects_frame = ProjectsFrame(self.content_area, controller)
+        self.templates_frame = TemplatesFrame(self.content_area, controller)
+        self.settings_frame = SettingsFrame(self.content_area, controller)
+        
+        # Create status bar
+        self.status_bar = StatusBar(self.main_frame, controller)
+        self.status_bar.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+```
 
-## 6. Integration and Testing (2 days)
+### Agent Runs Tab
 
-### Phase 1: Component Integration (1 day)
-- Integrate all components into the main application
-- Implement navigation between views
-- Ensure proper state management across the application
-- Add error handling and user feedback mechanisms
+```python
+class AgentRunsFrame:
+    def __init__(self, parent, controller):
+        # Create filter bar
+        self.filter_bar = FilterBar(self, controller)
+        self.filter_bar.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+        
+        # Create agent runs list
+        self.agent_runs_list = AgentRunsList(self, controller)
+        self.agent_runs_list.pack(fill=tk.BOTH, expand=True, padx=PADDING, pady=PADDING)
+        
+        # Create pagination
+        self.pagination = Pagination(self, controller)
+        self.pagination.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+```
 
-### Phase 2: End-to-End Testing (1 day)
-- Test all functionality with real API endpoints
-- Verify real-time updates and log streaming
-- Test error handling and edge cases
-- Optimize performance for large datasets
+### Create New Run Dialog
 
-## Total Implementation Time: 17 days (3.5 weeks)
+```python
+class CreateRunDialog:
+    def __init__(self, parent, controller):
+        # Create dialog
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Create New Agent Run")
+        self.dialog.geometry("800x600")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        # Create project selection
+        self.project_selection = ProjectSelection(self.dialog, controller)
+        self.project_selection.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+        
+        # Create template selection
+        self.template_selection = TemplateSelection(self.dialog, controller)
+        self.template_selection.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+        
+        # Create model selection
+        self.model_selection = ModelSelection(self.dialog, controller)
+        self.model_selection.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+        
+        # Create ProRun mode
+        self.prorun_mode = ProRunMode(self.dialog, controller)
+        self.prorun_mode.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+        
+        # Create prompt input
+        self.prompt_input = PromptInput(self.dialog, controller)
+        self.prompt_input.pack(fill=tk.BOTH, expand=True, padx=PADDING, pady=PADDING)
+        
+        # Create buttons
+        self.buttons = ButtonFrame(self.dialog, controller)
+        self.buttons.pack(fill=tk.X, padx=PADDING, pady=PADDING)
+```
 
-### Key Features Prioritized:
-1. Real-time streaming of agent run logs with detailed status information
-2. Comprehensive display of all log types (ACTION, PLAN_EVALUATION, ERROR, etc.)
-3. Visual indicators for different log types and tool usage
-4. Quick access to active runs from the header
-5. Starring functionality for runs and projects
-6. Project setup command generation and management
+## Testing Strategy
 
-### Implementation Approach:
-- Focus on core functionality first (agent runs, projects, starring)
-- Implement real-time updates and log streaming as a priority
-- Use a modular approach to allow for easy extension and maintenance
-- Prioritize user experience and performance
+1. **Unit Tests**
+   - Test API client functionality
+   - Test event system
+   - Test state management
+   - Test UI components
+
+2. **Integration Tests**
+   - Test API client with mock server
+   - Test UI components with mock controller
+   - Test end-to-end workflows
+
+3. **Manual Testing**
+   - Test all UI components
+   - Test all workflows
+   - Test error handling
+   - Test edge cases
+
+## Timeline
+
+1. **Phase 1: Core Infrastructure (1-2 days)**
+   - Create unified API client
+   - Implement event system
+   - Implement state management
+
+2. **Phase 2: Main UI Components (2-3 days)**
+   - Implement main window
+   - Implement navigation
+   - Implement agent runs tab
+   - Implement agent run detail view
+
+3. **Phase 3: Advanced Features (2-3 days)**
+   - Implement create new run dialog
+   - Implement ProRun mode
+   - Implement starred runs dashboard
+   - Implement projects tab
+
+4. **Phase 4: Additional Features (1-2 days)**
+   - Implement templates management
+   - Implement settings tab
+   - Implement CLI integration
+
+5. **Phase 5: Testing and Refinement (1-2 days)**
+   - Test all functionality
+   - Fix bugs
+   - Refine UI
+   - Add documentation
 
