@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Codegen UI Launcher (Legacy)
+Codegen UI Application
 
-This script launches the Codegen UI using the legacy interface.
-It is maintained for backward compatibility.
+This is the main entry point for the Codegen UI application.
+It launches the Tkinter-based user interface for interacting with the Codegen API.
 """
 
 import sys
 import logging
-import warnings
+import tkinter as tk
+from typing import Optional
 
 # Configure logging
 logging.basicConfig(
@@ -18,16 +19,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Show deprecation warning
-warnings.warn(
-    "codegen_ui.py is deprecated. Use app.py instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
 
 def main():
     """
-    Main entry point for the Codegen UI.
+    Main entry point for the Codegen UI application.
     
     This function initializes and runs the Codegen UI application.
     It handles any exceptions that might occur during startup.

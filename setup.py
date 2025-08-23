@@ -16,15 +16,17 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/codegen-sh/codegen-client",
-    packages=find_packages(),
+    packages=find_packages(include=["codegen*", "codegen_client*", "ui*"]),
     install_requires=[
         "requests>=2.25.0",
         "typer>=0.4.0",
         "rich>=10.0.0",
+        "httpx>=0.23.0",
+        "pydantic>=1.9.0",
     ],
     extras_require={
         "async": ["aiohttp>=3.7.0"],
-        "ui": ["tkinter"],
+        "ui": [],  # tkinter is part of the standard library
         "dev": [
             "pytest>=6.0.0",
             "black>=21.5b2",
@@ -36,6 +38,7 @@ setup(
     entry_points={
         "console_scripts": [
             "codegen=codegen.cli:app",
+            "codegen-ui=app:main",
         ],
     },
     classifiers=[
@@ -50,10 +53,5 @@ setup(
         "Programming Language :: Python :: 3.11",
     ],
     python_requires=">=3.7",
-    install_requires=[
-        "httpx>=0.23.0",
-        "pydantic>=1.9.0",
-    ],
-
 )
 

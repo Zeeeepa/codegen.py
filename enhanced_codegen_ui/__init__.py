@@ -1,13 +1,40 @@
 """
-Enhanced Codegen UI - A comprehensive Tkinter-based GUI for the Codegen API.
+Backward compatibility module for the Enhanced Codegen UI.
 
-This package provides a robust, feature-rich user interface for interacting with
-the Codegen API, implementing all codegen-cli commands and following best practices
-for Tkinter application development.
+This module provides backward compatibility for the Enhanced Codegen UI.
 """
 
-from enhanced_codegen_ui.application import CodegenApplication
+import logging
+import warnings
 
-__all__ = ["CodegenApplication"]
-__version__ = "0.2.0"
+# Import from the new UI package
+try:
+    from ui.application import CodegenApplication
+except ImportError:
+    logging.warning("Failed to import from ui package. Using local implementation.")
+    from enhanced_codegen_ui.app import EnhancedCodegenApp
+else:
+    # Create a compatibility class
+    class EnhancedCodegenApp:
+        """Backward compatibility class for the Enhanced Codegen UI."""
+        
+        def __init__(self, root):
+            """
+            Initialize the Enhanced Codegen UI.
+            
+            Args:
+                root: The root Tkinter window.
+            """
+            warnings.warn(
+                "EnhancedCodegenApp is deprecated. Use CodegenApplication instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.app = CodegenApplication()
+        
+        def run(self):
+            """Run the application."""
+            self.app.run()
+
+__all__ = ["EnhancedCodegenApp"]
 

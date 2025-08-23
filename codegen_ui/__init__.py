@@ -1,9 +1,40 @@
 """
-Codegen UI - A Tkinter-based GUI for the Codegen API.
+Backward compatibility module for the Codegen UI.
+
+This module provides backward compatibility for the Codegen UI.
 """
 
-from codegen_ui.app import CodegenApp
+import logging
+import warnings
+
+# Import from the new UI package
+try:
+    from ui.application import CodegenApplication
+except ImportError:
+    logging.warning("Failed to import from ui package. Using local implementation.")
+    from codegen_ui.app import CodegenApp
+else:
+    # Create a compatibility class
+    class CodegenApp:
+        """Backward compatibility class for the Codegen UI."""
+        
+        def __init__(self, root):
+            """
+            Initialize the Codegen UI.
+            
+            Args:
+                root: The root Tkinter window.
+            """
+            warnings.warn(
+                "CodegenApp is deprecated. Use CodegenApplication instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.app = CodegenApplication()
+        
+        def run(self):
+            """Run the application."""
+            self.app.run()
 
 __all__ = ["CodegenApp"]
-__version__ = "0.1.0"
 
