@@ -9,13 +9,12 @@ This document provides comprehensive UI mockups for the Codegen Agent API UI imp
 3. [Agent Runs Tab](#agent-runs-tab)
 4. [Agent Run Detail View](#agent-run-detail-view)
 5. [Create New Run Dialog](#create-new-run-dialog)
-6. [ProRun Configuration](#prorun-configuration)
-7. [Starred Runs Dashboard](#starred-runs-dashboard)
-8. [Projects Tab](#projects-tab)
-9. [Prompt Templates Management](#prompt-templates-management)
-10. [Settings Tab](#settings-tab)
-11. [CLI Integration](#cli-integration)
-12. [Function Flows](#function-flows)
+6. [Starred Runs Dashboard](#starred-runs-dashboard)
+7. [Projects Tab](#projects-tab)
+8. [Prompt Templates Management](#prompt-templates-management)
+9. [Settings Tab](#settings-tab)
+10. [CLI Integration](#cli-integration)
+11. [Function Flows](#function-flows)
 
 ## Main Application Layout
 
@@ -217,26 +216,27 @@ When clicking on the "Create New Run" button, a dialog opens to create a new age
 |   Google:                                                    |
 |   - Gemini 2.5                                               |
 |                                                              |
-| [✓] ProRun Mode  [ProRun Configuration ⚙️]                   |
-|     Generate multiple responses and synthesize best result   |
-|     Number of candidates: [10 ▼]                             |
+| [✓] ProRun Mode                                              |
 |                                                              |
-+--------------------------------------------------------------+
+| ProRun Saved Configuration: [Select Configuration ▼]         |
 |                                                              |
-| [Varied Agent Responses]                                     |
+| Generate multiple responses and synthesize best result       |
+| Number of candidates: [10 ▼]                                 |
 |                                                              |
-| Agent 1: [OpenAI: GPT-5 ▼]                                   |
-| Agent 2: [ANTHROPIC: CLAUDE SONNET 4 ▼]                      |
-| Agent 3: [OpenAI: GPT-4.1 ▼]                                 |
-| Agent 4: [Google: Gemini 2.5 ▼]                              |
-| Agent 5: [ANTHROPIC: CLAUDE SONNET 3.7 ▼]                    |
-| Agent 6: [OpenAI: O3 ▼]                                      |
-| Agent 7: [ANTHROPIC: CLAUDE SONNET 3.5 ▼]                    |
-| Agent 8: [OpenAI: O4 Mini ▼]                                 |
-| Agent 9: [OpenAI: GPT-5 ▼]                                   |
-| Agent 10: [ANTHROPIC: CLAUDE SONNET 4 ▼]                     |
+| Agent 1: [CLAUDE SONNET 4 ▼]                                 |
+| Agent 2: [GPT-5 ▼]                                           |
+| Agent 3: [Gemini 2.5 ▼]                                      |
+| Agent 4: [GPT-4.1 ▼]                                         |
+| Agent 5: [CLAUDE SONNET 3.7 ▼]                               |
+| Agent 6: [O3 ▼]                                              |
+| Agent 7: [CLAUDE SONNET 3.5 ▼]                               |
+| Agent 8: [O4 Mini ▼]                                         |
+| Agent 9: [GPT-5 ▼]                                           |
+| Agent 10: [CLAUDE SONNET 4 ▼]                                |
 |                                                              |
-+--------------------------------------------------------------+
+| Synthesis Prompt Template: [Select Template ▼]               |
+|                                                              |
+| [Save ProRun Configuration]                                  |
 |                                                              |
 | Prompt:                                                      |
 | +----------------------------------------------------------+ |
@@ -251,41 +251,28 @@ When clicking on the "Create New Run" button, a dialog opens to create a new age
 +--------------------------------------------------------------+
 ```
 
-## ProRun Configuration
+### Save ProRun Configuration Dialog
 
-When clicking on the "ProRun Configuration" button, a dialog opens with advanced ProRun settings:
+When clicking on the "Save ProRun Configuration" button, a dialog opens to save the current ProRun configuration:
 
 ```
 +--------------------------------------------------------------+
-|                     ProRun Configuration                     |
+|                  Save ProRun Configuration                   |
 +--------------------------------------------------------------+
 |                                                              |
-| Synthesis Method:                                            |
-| (•) Simple (Direct synthesis of all candidates)              |
-| ( ) Tournament (Group candidates and synthesize winners)     |
+| Configuration Name:                                          |
+| [My Custom ProRun Config                               ]     |
 |                                                              |
-| Tournament Settings:                                         |
-|   Group Size: [10 ▼]                                         |
-|   Tournament Threshold: [20 ▼]                               |
+| Description (Optional):                                      |
+| [Custom configuration with mixed models                ]     |
 |                                                              |
-| Advanced Settings:                                           |
-| [✓] Enable parallel processing                               |
-| [✓] Auto-filter empty or invalid responses                   |
-| [ ] Include raw candidates in final output                   |
-| [✓] Use weighted voting for synthesis                        |
-|                                                              |
-| Synthesis Temperature: [0.2 ▼]                               |
-| Max Output Tokens: [30000 ▼]                                 |
-|                                                              |
-| Custom Synthesis Instructions:                               |
-| +----------------------------------------------------------+ |
-| | You are an expert editor. Synthesize ONE best answer     | |
-| | from the candidate answers provided, merging strengths,  | |
-| | correcting errors, and removing repetition.              | |
-| +----------------------------------------------------------+ |
+| Configuration Details:                                       |
+| - Number of candidates: 10                                   |
+| - Agent models: CLAUDE SONNET 4, GPT-5, Gemini 2.5, ...      |
+| - Synthesis template: Expert Synthesis                       |
 |                                                              |
 +--------------------------------------------------------------+
-| [Save Configuration] [Reset to Defaults] [Cancel]            |
+| [Save Configuration] [Cancel]                                |
 +--------------------------------------------------------------+
 ```
 
@@ -296,8 +283,9 @@ When clicking on the "CLI Command" dropdown, it shows the equivalent CLI command
 ```
 +--------------------------------------------------------------+
 | CLI Command:                                                 |
-| codegen agent --prompt "Your prompt text" --model "gpt-5"    |
-| --repo-id 123 --prorun --candidates 10                       |
+| codegen agent --prompt "Your prompt text" --prorun           |
+| --candidates 10 --agent1 "claude-sonnet-4" --agent2 "gpt-5"  |
+| --agent3 "gemini-2.5" --synthesis-template "expert-synthesis"|
 +--------------------------------------------------------------+
 | [Copy to Clipboard]                                          |
 +--------------------------------------------------------------+
@@ -459,8 +447,8 @@ The Templates tab allows managing prompt templates for agent runs.
 | Code       | Template for   | Code     | [👁️] [✏️] [🗑️] [⋮]  |
 | Review     | reviewing code |          |                     |
 +--------------------------------------------------------------+
-| Document   | Template for   | Docs     | [👁️] [✏️] [🗑️] [⋮]  |
-| Generation | creating docs  |          |                     |
+| Expert     | Template for   | Synthesis| [👁️] [✏️] [🗑️] [⋮]  |
+| Synthesis  | ProRun synthesis|         |                     |
 +--------------------------------------------------------------+
 |                                                              |
 |                      [Load More]                             |
@@ -475,30 +463,28 @@ When creating or editing a template:
 +--------------------------------------------------------------+
 | ← Back to Templates                                          |
 +--------------------------------------------------------------+
-| Edit Template: Bug Fix                                       |
+| Edit Template: Expert Synthesis                              |
 +--------------------------------------------------------------+
 |                                                              |
-| Name: [Bug Fix                                          ]    |
-| Category: [Code ▼]                                           |
+| Name: [Expert Synthesis                                 ]    |
+| Category: [Synthesis ▼]                                      |
 |                                                              |
 | Description:                                                 |
-| [Template for fixing bugs in code                       ]    |
+| [Template for synthesizing multiple agent responses     ]    |
 |                                                              |
 | Template Content:                                            |
 | +----------------------------------------------------------+ |
-| | Fix the bug in {{file_path}} where {{bug_description}}.  | |
-| | The issue is related to {{issue_type}}.                  | |
+| | You are an expert editor. Synthesize ONE best answer     | |
+| | from the candidate answers provided, merging strengths,  | |
+| | correcting errors, and removing repetition.              | |
 | |                                                          | |
-| | Please provide:                                          | |
-| | 1. Root cause analysis                                   | |
-| | 2. Fix implementation                                    | |
-| | 3. Tests to verify the fix                               | |
+| | {{agent_responses}}                                      | |
+| |                                                          | |
+| | Return the single best final answer.                     | |
 | +----------------------------------------------------------+ |
 |                                                              |
 | Variables:                                                   |
-| - file_path: Path to the file containing the bug             |
-| - bug_description: Description of the bug                    |
-| - issue_type: Type of issue (e.g., logic, syntax, etc.)      |
+| - agent_responses: The responses from all agents             |
 |                                                              |
 +--------------------------------------------------------------+
 | [Save Template] [Cancel] [Test Template]                     |
@@ -538,7 +524,7 @@ The Settings tab allows configuring API tokens and other settings.
 | ProRun Settings:                                             |
 | [✓] Enable ProRun by default                                 |
 | Default number of candidates: [10 ▼]                         |
-| Default synthesis method: [Simple ▼]                         |
+| Default synthesis template: [Expert Synthesis ▼]             |
 |                                                              |
 | CLI Integration:                                             |
 | [✓] Enable CLI integration                                   |
@@ -562,8 +548,9 @@ When performing actions in the UI, equivalent CLI commands are displayed:
 | Creating Agent Run                                           |
 +--------------------------------------------------------------+
 | Equivalent CLI Command:                                      |
-| codegen agent --prompt "Fix the login form bug" --model      |
-| "claude-sonnet-3.5" --repo-id 123 --prorun --candidates 10   |
+| codegen agent --prompt "Fix the login form bug" --prorun     |
+| --candidates 10 --agent1 "claude-sonnet-4" --agent2 "gpt-5"  |
+| --synthesis-template "expert-synthesis"                      |
 +--------------------------------------------------------------+
 | [Copy to Clipboard] [Run in Terminal]                        |
 +--------------------------------------------------------------+
@@ -582,15 +569,19 @@ A dedicated CLI command builder is available for advanced users:
 |                                                              |
 | Options:                                                     |
 | [✓] --prompt     ["Fix the login form bug"              ]    |
-| [✓] --model      ["claude-sonnet-3.5"                   ]    |
+| [ ] --model      ["claude-sonnet-3.5"                   ]    |
 | [✓] --repo-id    [123                                   ]    |
 | [ ] --org-id     [                                      ]    |
 | [✓] --prorun                                                 |
 | [✓] --candidates [10                                    ]    |
+| [✓] --agent1     ["claude-sonnet-4"                     ]    |
+| [✓] --agent2     ["gpt-5"                               ]    |
+| [✓] --synthesis-template ["expert-synthesis"            ]    |
 |                                                              |
 | Generated Command:                                           |
-| codegen agent --prompt "Fix the login form bug" --model      |
-| "claude-sonnet-3.5" --repo-id 123 --prorun --candidates 10   |
+| codegen agent --prompt "Fix the login form bug" --repo-id 123|
+| --prorun --candidates 10 --agent1 "claude-sonnet-4"          |
+| --agent2 "gpt-5" --synthesis-template "expert-synthesis"     |
 |                                                              |
 +--------------------------------------------------------------+
 | [Copy to Clipboard] [Run in Terminal] [Save as Alias]        |
@@ -627,32 +618,48 @@ A dedicated CLI command builder is available for advanced users:
 
 ```
 +----------------+     +----------------+     +----------------+
-| User enables   |     | Varied Agent   |     | User configures|
-| ProRun mode    |---->| Responses      |---->| individual     |
-| checkbox       |     | section appears|     | agent models   |
+| User enables   |     | Agent selector |     | User selects   |
+| ProRun mode    |---->| fields appear  |---->| models for each|
+| checkbox       |     | in the form    |     | agent          |
 +----------------+     +----------------+     +----------------+
         |                                             |
         v                                             v
 +----------------+     +----------------+     +----------------+
-| User clicks    |     | ProRun Config  |     | User adjusts   |
-| ProRun Config  |---->| dialog opens   |---->| synthesis      |
-| button         |     |                |     | settings       |
-+----------------+     +----------------+     +----------------+
-        |                                             |
-        v                                             v
-+----------------+     +----------------+     +----------------+
-| User submits   |     | Multiple model |     | System         |
-| the agent run  |---->| instances run  |---->| synthesizes    |
-| form           |     | in parallel    |     | best response  |
+| User selects   |     | User submits   |     | System creates |
+| synthesis      |---->| the form       |---->| multiple agent |
+| template       |     |                |     | runs in parallel|
 +----------------+     +----------------+     +----------------+
         |
         v
 +----------------+     +----------------+     +----------------+
-| UI shows       |     | UI displays    |     | User can view  |
-| progress of    |---->| final          |---->| all candidate  |
-| synthesis      |     | synthesized    |     | responses      |
-+----------------+     | result         |     |                |
-                       +----------------+     +----------------+
+| System waits   |     | System collects|     | System creates |
+| for all agent  |---->| all agent     |---->| synthesis run   |
+| runs to complete|    | responses     |     | with template   |
++----------------+     +----------------+     +----------------+
+        |
+        v
++----------------+     +----------------+
+| Final          |     | UI displays    |
+| synthesized    |---->| final result   |
+| result created |     | to user        |
++----------------+     +----------------+
+```
+
+### Save ProRun Configuration Flow
+
+```
++----------------+     +----------------+     +----------------+
+| User configures|     | User clicks    |     | Save dialog    |
+| ProRun settings|---->| Save ProRun    |---->| opens          |
+|                |     | Configuration  |     |                |
++----------------+     +----------------+     +----------------+
+        |                                             |
+        v                                             v
++----------------+     +----------------+     +----------------+
+| User enters    |     | System saves   |     | Configuration  |
+| name and       |---->| configuration  |---->| appears in     |
+| description    |     | to database    |     | dropdown       |
++----------------+     +----------------+     +----------------+
 ```
 
 ### Live Log Streaming Flow
