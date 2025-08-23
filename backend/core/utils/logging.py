@@ -8,7 +8,7 @@ import logging
 import sys
 from typing import Optional, Dict, Any
 
-from codegen.models.enums import LogLevel
+from backend.core.models.enums import LogLevel
 
 
 def configure_logging(
@@ -142,4 +142,3 @@ def log_response(
     # Log at the specified level
     log_func = getattr(logger, level.lower())
     log_func(log_message)
-
