@@ -1,132 +1,85 @@
-# Codegen.py
+# Codegen UI
 
-A Python client and API for Codegen, providing both a command-line interface and a graphical user interface.
+A comprehensive Tkinter-based UI for the Codegen Agent API.
 
-## Project Structure
+## Features
 
-The project is organized into the following main components:
-
-```
-codegen.py/
-├── app.py                  # Main entry point
-├── backend/                # Backend components
-│   ├── api/                # API implementation
-│   ├── client/             # Client implementation
-│   └── core/               # Core functionality
-├── frontend/               # Frontend components
-│   ├── components/         # UI components
-│   ├── core/               # Core UI functionality
-│   ├── utils/              # UI utilities
-│   └── views/              # UI views/frames
-└── docs/                   # Documentation
-    ├── api/                # API documentation
-    ├── ui/                 # UI documentation
-    └── mockups/            # UI mockups
-```
+- **Agent Runs Management**: View, create, and manage agent runs with live status updates
+- **Starred Runs Dashboard**: Star important agent runs and view them in a dedicated dashboard
+- **Projects Management**: View projects and their setup commands
+- **Templates Management**: Create, edit, and use templates for agent runs
+- **ProRun Mode Support**: Configure and use ProRun mode for agent runs
+- **CLI Integration**: Use the UI from the command line
 
 ## Installation
 
-### From PyPI
-
 ```bash
-pip install codegen-api
-```
-
-### From Source
-
-```bash
-git clone https://github.com/codegen-sh/codegen.py.git
+# Clone the repository
+git clone https://github.com/Zeeeepa/codegen.py.git
 cd codegen.py
-pip install -e .
-```
 
-### Development Installation
-
-```bash
-pip install -e ".[dev]"
-```
-
-### UI Installation
-
-```bash
-pip install -e ".[ui]"
-```
-
-### Async Installation
-
-```bash
-pip install -e ".[async]"
+# Install dependencies
+pip install -r requirements.txt
 ```
 
 ## Usage
 
-### Command-Line Interface
-
 ```bash
-# Start the UI
-codegen
-
-# Start the API server
-codegen api
-
-# Configure client settings
-codegen config --api-key YOUR_API_KEY --api-url https://api.codegen.com/v1
+# Run the UI
+python main.py
 ```
 
-### Python API
+## Architecture
 
-```python
-from backend import ClientConfig, ConfigPresets
-from backend.client import AgentEndpoint
+The Codegen UI is built with a modular architecture:
 
-# Configure the client
-config = ClientConfig()
-config.load_preset(ConfigPresets.DEVELOPMENT)
-config.api_token = "YOUR_API_KEY"
-
-# Create an agent endpoint
-agent_endpoint = AgentEndpoint(config)
-
-# Get all agents
-agents = agent_endpoint.list_agents()
-print(agents)
-```
-
-### UI
-
-```bash
-# Start the UI
-codegen-ui
-```
+- **Unified Backend**: A comprehensive API client with support for all required endpoints
+- **UI Components**: Reusable UI components for displaying agent runs, projects, and templates
+- **UI Frames**: Main UI frames for different views
+- **Application Controller**: Handles communication between the UI and the API client
+- **Event System**: Enables communication between UI components
 
 ## Development
 
 ### Running Tests
 
 ```bash
-pytest
+# Run all tests
+python -m unittest discover -s tests
+
+# Run specific tests
+python -m unittest tests.test_unified_backend
+python -m unittest tests.test_ui_components
 ```
 
-### Code Formatting
+### Project Structure
 
-```bash
-black .
-isort .
+```
+codegen.py/
+├── main.py                  # Main entry point
+├── unified_backend/         # Unified backend package
+│   ├── __init__.py
+│   ├── client.py            # API client
+│   ├── endpoints/           # API endpoints
+│   ├── models/              # Data models
+│   └── utils/               # Utilities
+├── ui/                      # UI package
+│   ├── __init__.py
+│   ├── application.py       # Main application class
+│   ├── components/          # UI components
+│   ├── core/                # Core functionality
+│   ├── frames/              # UI frames
+│   └── utils/               # UI utilities
+└── tests/                   # Tests
+    ├── test_unified_backend.py
+    └── test_ui_components.py
 ```
 
-### Type Checking
+## Contributing
 
-```bash
-mypy .
-```
-
-### Linting
-
-```bash
-flake8 .
-```
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the LICENSE file for details.
 
