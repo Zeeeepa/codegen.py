@@ -1,265 +1,210 @@
 #!/usr/bin/env python3
-# cli.py
+"""
+Codegen CLI.
+
+A command-line interface for interacting with the Codegen API.
+"""
+
+import os
 import sys
-import time
+import json
 from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.table import Table
-from rich.live import Live
 from rich.panel import Panel
+from rich.table import Table
+from rich.syntax import Syntax
 
-# Import the client from the library file
-try:
-    from codegen_api import CodegenClient, CodegenAPIError, ClientConfig, NotFoundError
-except ImportError:
-    print(
-        "Error: Could not find 'codegen_api.py'. Make sure it's in the same directory."
-    )
-    sys.exit(1)
+from codegen_client import CodegenClient, CodegenApiError
 
-# --- CLI Setup ---
-app = typer.Typer(
-    name="codegen-cli",
-    help="A powerful command-line interface for the Codegen Agent API.",
-    add_completion=False,
-)
+app = typer.Typer(help="Codegen CLI")
 console = Console()
 
 
-# --- Helper Functions & State ---
 def get_client() -> CodegenClient:
-    """Initializes and returns the CodegenClient, handling configuration and errors."""
-    try:
-        config = ClientConfig()
-        if not config.org_id:
-            console.print(
-                "[bold red]Error: CODEGEN_ORG_ID environment variable is not set.[/bold red]"
-            )
-            raise typer.Exit(code=1)
-        return CodegenClient(config)
-    except (ValueError, CodegenAPIError) as e:
-        console.print(f"[bold red]Error initializing API client: {e}[/bold red]")
-        raise typer.Exit(code=1)
+    """
+    Get a Codegen API client.
+
+    Returns:
+        CodegenClient: Codegen API client
+    """
+    api_key = os.environ.get("CODEGEN_API_KEY")
+    if not api_key:
+        console.print("[bold red]Error:[/bold red] CODEGEN_API_KEY environment variable is not set")
+        sys.exit(1)
+    return CodegenClient(api_key=api_key)
 
 
-def format_log_entry(log: dict) -> str:
-    """Formats a single log entry for clean printing."""
-    log_type = log.get("message_type", "LOG")
-    created_at = log.get("created_at", "")
-    output = f"[dim]{created_at}[/dim] [bold cyan]{log_type:<15}[/bold cyan]"
-
-    if thought := log.get("thought"):
-        output += f" 🤔 {thought}"
-    if tool_name := log.get("tool_name"):
-        output += f"\n  [dim]=> Tool:[/] [bold magenta]{tool_name}[/bold magenta] | Input: {log.get('tool_input')}"
-    if observation := log.get("observation"):
-        if log_type == "FINAL_ANSWER":
-            return Panel(
-                f"[bold green]Final Answer:[/] {observation}",
-                border_style="green",
-                expand=False,
-            )
-        if log_type == "ERROR":
-            return Panel(
-                f"[bold red]Error:[/] {observation}", border_style="red", expand=False
-            )
-    return output
-
-
-# --- MODIFIED FUNCTION ---
-def stream_logs(client: CodegenClient, run_id: int, follow: bool):
-    """Handles the logic for fetching and displaying logs, with optional following."""
-    logs_seen_count = 0
-    initial_fetch_retries = 5  # Number of retries for the initial 404 error
-
-    with Live(console=console, auto_refresh=False) as live:
-        while True:
-            try:
-                org_id_int = int(client.config.org_id)
-                run_with_logs = client.get_agent_run_logs(
-                    org_id_int, run_id, limit=100, skip=logs_seen_count
-                )
-
-                new_logs = run_with_logs.logs
-                if new_logs:
-                    for log in new_logs:
-                        console.print(format_log_entry(log.__dict__))
-                    logs_seen_count += len(new_logs)
-
-                status = (
-                    run_with_logs.status.upper() if run_with_logs.status else "UNKNOWN"
-                )
-                live.update(
-                    Panel(
-                        f"Run ID: {run_id} | Status: [bold]{status}[/bold]",
-                        refresh=True,
-                    ),
-                    refresh=True,
-                )
-
-                if not follow or status not in ["RUNNING", "PENDING", "ACTIVE"]:
-                    break
-
-                time.sleep(2)
-
-            # --- NEW: Handle the initial 404 Not Found error ---
-            except NotFoundError:
-                if initial_fetch_retries > 0:
-                    live.update(
-                        Panel(
-                            f"Run ID: {run_id} | Status: [yellow]Waiting for logs...[/yellow] (retrying)",
-                            border_style="yellow",
-                        ),
-                        refresh=True,
-                    )
-                    time.sleep(2)  # Wait 2 seconds before retrying
-                    initial_fetch_retries -= 1
-                    continue  # Retry the loop
-                else:
-                    console.print(
-                        f"[bold red]Error: Could not find logs for run {run_id} after several retries.[/bold red]"
-                    )
-                    break
-
-            except CodegenAPIError as e:
-                console.print(f"[bold red]Error fetching logs: {e.message}[/bold red]")
-                break
-            except KeyboardInterrupt:
-                console.print("\n[yellow]Stopped following logs.[/yellow]")
-                break
-            except ValueError:
-                console.print(
-                    f"[bold red]Error: The organization ID '{client.config.org_id}' is not a valid integer.[/bold red]"
-                )
-                break
-
-
-# --- CLI Commands (No changes needed below this line) ---
-
-
-@app.command(name="run", help="🚀 Start a new agent run and stream its logs.")
-def run_agent(
-    query: str = typer.Argument(..., help="The prompt or task for the agent."),
-    follow: bool = typer.Option(
-        True, "--follow/--no-follow", help="Stream logs live after starting."
-    ),
-):
-    """Creates a new agent run and optionally follows its progress."""
+@app.command()
+def organizations():
+    """
+    List organizations.
+    """
     client = get_client()
     try:
-        console.print(f"▶️  Starting agent with query: '[cyan]{query}[/cyan]'...")
-        org_id_int = int(client.config.org_id)
-        run = client.create_agent_run(org_id=org_id_int, prompt=query)
-        console.print(
-            f"✅ Agent run created successfully! [bold]Run ID: {run.id}[/bold]"
-        )
-        if run.web_url:
-            console.print(f"   View online: {run.web_url}")
-
-        if follow:
-            console.print("\n--- Streaming Logs ---")
-            stream_logs(client, run.id, follow=True)
-
-    except CodegenAPIError as e:
-        console.print(f"[bold red]API Error: {e.message}[/bold red]")
-        raise typer.Exit(code=1)
-    except ValueError:
-        console.print(
-            f"[bold red]Error: The organization ID '{client.config.org_id}' is not a valid integer.[/bold red]"
-        )
-        raise typer.Exit(code=1)
-
-
-@app.command(name="list", help="📋 List recent agent runs for your organization.")
-def list_runs(
-    limit: int = typer.Option(20, "--limit", "-l", help="Number of runs to display."),
-    status: Optional[str] = typer.Option(
-        None, "--status", "-s", help="Filter by status (e.g., running, completed)."
-    ),
-):
-    """Fetches and displays a table of recent agent runs."""
-    client = get_client()
-    try:
-        org_id_int = int(client.config.org_id)
-        runs = client.list_agent_runs(
-            org_id=org_id_int, limit=limit, source_type=status
-        )
-
-        table = Table(title="Recent Agent Runs", box=None, padding=(0, 1))
-        table.add_column("ID", style="cyan", no_wrap=True)
-        table.add_column("Status", style="magenta")
-        table.add_column("Created At", style="green")
-        table.add_column("Result", style="yellow")
-        table.add_column("Web URL", style="dim")
-
-        for run in runs.items:
-            table.add_row(
-                str(run.id),
-                run.status or "N/A",
-                run.created_at or "N/A",
-                (run.result or "")[:50] + "..." if run.result else "N/A",
-                run.web_url or "N/A",
-            )
+        orgs = client.organizations.get_organizations()
+        table = Table(title="Organizations")
+        table.add_column("ID", style="cyan")
+        table.add_column("Name", style="green")
+        table.add_column("Slug", style="blue")
+        
+        for org in orgs.items:
+            table.add_row(str(org.id), org.name, org.slug)
+            
         console.print(table)
-    except CodegenAPIError as e:
-        console.print(f"[bold red]API Error: {e.message}[/bold red]")
-        raise typer.Exit(code=1)
-    except ValueError:
-        console.print(
-            f"[bold red]Error: The organization ID '{client.config.org_id}' is not a valid integer.[/bold red]"
-        )
-        raise typer.Exit(code=1)
+    except CodegenApiError as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        sys.exit(1)
 
 
-@app.command(name="logs", help="📄 View the logs for a specific agent run.")
-def get_logs(
-    run_id: int = typer.Argument(..., help="The ID of the agent run."),
-    follow: bool = typer.Option(
-        False,
-        "--follow",
-        "-f",
-        help="Follow the logs in real-time if the run is active.",
-    ),
-):
-    """Fetches and displays logs for a given run ID."""
-    client = get_client()
-    stream_logs(client, run_id, follow)
-
-
-@app.command(
-    name="continue", help="💬 Send a continuation message to a paused or running agent."
-)
-def continue_run(
-    run_id: int = typer.Argument(..., help="The ID of the agent run to continue."),
-    message: str = typer.Argument(..., help="The follow-up message or instruction."),
-    follow: bool = typer.Option(
-        True, "--follow/--no-follow", help="Stream logs live after sending the message."
-    ),
-):
-    """Resumes an agent run with a new message."""
+@app.command()
+def repositories(org_id: int):
+    """
+    List repositories for an organization.
+    """
     client = get_client()
     try:
-        console.print(f"▶️  Sending message to run [cyan]{run_id}[/cyan]...")
-        org_id_int = int(client.config.org_id)
-        run = client.resume_agent_run(
-            org_id=org_id_int, agent_run_id=run_id, prompt=message
-        )
-        console.print("✅ Message sent successfully!")
+        repos = client.repositories.get_repositories(org_id=org_id)
+        table = Table(title=f"Repositories for Organization {org_id}")
+        table.add_column("ID", style="cyan")
+        table.add_column("Name", style="green")
+        table.add_column("Full Name", style="blue")
+        
+        for repo in repos.items:
+            table.add_row(str(repo.id), repo.name, repo.full_name)
+            
+        console.print(table)
+    except CodegenApiError as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        sys.exit(1)
 
-        if follow:
-            console.print("\n--- Streaming Logs ---")
-            stream_logs(client, run.id, follow=True)
-    except CodegenAPIError as e:
-        console.print(f"[bold red]API Error: {e.message}[/bold red]")
-        raise typer.Exit(code=1)
-    except ValueError:
-        console.print(
-            f"[bold red]Error: The organization ID '{client.config.org_id}' is not a valid integer.[/bold red]"
+
+@app.command()
+def users(org_id: int):
+    """
+    List users for an organization.
+    """
+    client = get_client()
+    try:
+        users = client.users.get_users(org_id=org_id)
+        table = Table(title=f"Users for Organization {org_id}")
+        table.add_column("ID", style="cyan")
+        table.add_column("Name", style="green")
+        table.add_column("Email", style="blue")
+        
+        for user in users.items:
+            table.add_row(str(user.id), user.name, user.email)
+            
+        console.print(table)
+    except CodegenApiError as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        sys.exit(1)
+
+
+@app.command()
+def agent_run(
+    org_id: int,
+    prompt: str,
+    repo_id: Optional[int] = None,
+    model: Optional[str] = None,
+):
+    """
+    Create an agent run.
+    """
+    client = get_client()
+    try:
+        agent_run = client.agents.create_agent_run(
+            org_id=org_id,
+            prompt=prompt,
+            repo_id=repo_id,
+            model=model,
         )
-        raise typer.Exit(code=1)
+        
+        console.print(Panel(f"Created agent run with ID: [bold green]{agent_run.id}[/bold green]"))
+        console.print("Status:", agent_run.status)
+        console.print("Created at:", agent_run.created_at)
+        
+        # Wait for the agent run to complete
+        console.print("\nWaiting for agent run to complete...")
+        with console.status("[bold green]Running agent...[/bold green]"):
+            agent_run = client.agents.wait_for_agent_run(
+                org_id=org_id,
+                agent_run_id=agent_run.id,
+            )
+        
+        console.print(f"\nAgent run [bold green]completed[/bold green] with status: {agent_run.status}")
+        if agent_run.output:
+            console.print("\n[bold]Output:[/bold]")
+            console.print(Panel(agent_run.output, expand=False))
+    except CodegenApiError as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        sys.exit(1)
+
+
+@app.command()
+def multi_run_agent(
+    org_id: int,
+    prompt: str,
+    concurrency: int = typer.Option(3, "--concurrency", "-c", help="Number of concurrent agent runs (1-20)"),
+    repo_id: Optional[int] = typer.Option(None, "--repo-id", "-r", help="Repository ID"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model to use"),
+    temperature: float = typer.Option(0.7, "--temperature", "-t", help="Temperature for generation (0.0-1.0)"),
+    synthesis_temperature: float = typer.Option(0.2, "--synthesis-temperature", "-st", help="Temperature for synthesis (0.0-1.0)"),
+    timeout: float = typer.Option(600.0, "--timeout", help="Maximum seconds to wait for completion"),
+    output_file: Optional[str] = typer.Option(None, "--output", "-o", help="Output file for results (JSON)"),
+    show_candidates: bool = typer.Option(False, "--show-candidates", help="Show all candidate outputs"),
+):
+    """
+    Run multiple agent instances concurrently and synthesize their outputs.
+    """
+    if not 1 <= concurrency <= 20:
+        console.print("[bold red]Error:[/bold red] Concurrency must be between 1 and 20")
+        sys.exit(1)
+        
+    client = get_client()
+    try:
+        console.print(f"Running [bold cyan]{concurrency}[/bold cyan] agent instances concurrently...")
+        
+        with console.status(f"[bold green]Running {concurrency} agents...[/bold green]"):
+            result = client.multi_run_agent.create_multi_run(
+                org_id=org_id,
+                prompt=prompt,
+                concurrency=concurrency,
+                repo_id=repo_id,
+                model=model,
+                temperature=temperature,
+                synthesis_temperature=synthesis_temperature,
+                timeout=timeout,
+            )
+        
+        console.print(f"\n[bold green]Success![/bold green] Completed multi-run agent with {len(result['candidates'])} successful runs")
+        
+        # Display the final synthesized output
+        console.print("\n[bold]Final Synthesized Output:[/bold]")
+        console.print(Panel(result["final"], expand=False))
+        
+        # Optionally show all candidate outputs
+        if show_candidates:
+            console.print("\n[bold]Candidate Outputs:[/bold]")
+            for i, candidate in enumerate(result["candidates"]):
+                console.print(f"\n[bold cyan]Candidate {i+1}:[/bold cyan]")
+                console.print(Panel(candidate, expand=False))
+        
+        # Save results to file if requested
+        if output_file:
+            with open(output_file, "w") as f:
+                json.dump(result, f, indent=2)
+            console.print(f"\nResults saved to [bold blue]{output_file}[/bold blue]")
+            
+    except CodegenApiError as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        sys.exit(1)
+    except ValueError as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     app()
+

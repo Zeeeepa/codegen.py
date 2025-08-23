@@ -1,17 +1,21 @@
-#!/usr/bin/env python3
 """
 Setup script for the Codegen API client.
 """
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
+
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
 
 setup(
-    name="codegen-api",
+    name="codegen-client",
     version="0.1.0",
-    description="Python client for the Codegen Agent API",
-    author="Codegen Team",
+    author="Codegen",
     author_email="support@codegen.com",
-    url="https://github.com/Zeeeepa/codegen.py",
+    description="Python client for the Codegen API",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/codegen-sh/codegen-client",
     packages=find_packages(),
     install_requires=[
         "requests>=2.25.0",
@@ -43,7 +47,13 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
     python_requires=">=3.7",
+    install_requires=[
+        "httpx>=0.23.0",
+        "pydantic>=1.9.0",
+    ],
+
 )
 
