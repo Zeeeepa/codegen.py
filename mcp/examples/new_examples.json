@@ -1,0 +1,51 @@
+{
+  "name": "codegenapi_new",
+  "description": "Start a new agent run",
+  "examples": [
+    {
+      "title": "Basic new agent run",
+      "arguments": {
+        "repo": "Zeeeepa/codegen.py",
+        "task": "CREATE_PLAN",
+        "query": "Create a comprehensive plan to properly structure codebase"
+      }
+    },
+    {
+      "title": "With branch targeting",
+      "arguments": {
+        "repo": "Zeeeepa/codegen.py",
+        "branch": "feature/auth",
+        "task": "FEATURE_IMPLEMENTATION",
+        "query": "Implement JWT-based authentication with refresh tokens"
+      }
+    },
+    {
+      "title": "With PR targeting",
+      "arguments": {
+        "repo": "Zeeeepa/codegen.py",
+        "pr": 123,
+        "task": "BUG_FIX",
+        "query": "Fix the authentication bug in the login form"
+      }
+    },
+    {
+      "title": "With parent orchestration",
+      "arguments": {
+        "repo": "Zeeeepa/codegen.py",
+        "task": "ANALYZE",
+        "query": "Analyze the authentication module",
+        "parent_id": 12345
+      }
+    },
+    {
+      "title": "Wait for completion",
+      "arguments": {
+        "repo": "Zeeeepa/codegen.py",
+        "task": "CREATE_PLAN",
+        "query": "Create a quick plan for the project",
+        "wait_for_completion": true
+      }
+    }
+  ]
+}
+

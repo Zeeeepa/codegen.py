@@ -1,0 +1,26 @@
+{
+  "name": "codegenapi_list",
+  "description": "List agent runs",
+  "examples": [
+    {
+      "title": "List recent runs",
+      "arguments": {
+        "limit": 10
+      }
+    },
+    {
+      "title": "Filter by status",
+      "arguments": {
+        "status": "running",
+        "limit": 20
+      }
+    },
+    {
+      "title": "Filter by repository",
+      "arguments": {
+        "repo": "Zeeeepa/codegen.py",
+        "limit": 5
+      }
+    }
+  ]
+}
