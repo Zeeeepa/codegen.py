@@ -1,12 +1,18 @@
-#!/usr/bin/env python3
 """
-Command-line interface for the Codegen API.
+Compatibility module for backward compatibility with existing code.
 
-This script provides a command-line interface for interacting with the Codegen API.
+This module provides a shim to maintain backward compatibility with code
+that imports from the old codegen_cli.py module.
 """
 
-from codegen.cli import app
+import warnings
 
-if __name__ == "__main__":
-    app()
+warnings.warn(
+    "The codegen_cli module is deprecated. Please import from backend.cli instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Import and re-export from new locations
+from backend.cli.codegen_cli import *
 

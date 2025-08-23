@@ -1,69 +1,46 @@
-# Codegen.py
+# Codegen Python Client
 
-A Python client and API for Codegen, providing both a command-line interface and a graphical user interface.
+This repository contains the Python client and API for Codegen.
 
 ## Project Structure
 
-The project is organized into the following main components:
+The project is organized into the following main directories:
 
-```
-codegen.py/
-├── app.py                  # Main entry point
-├── backend/                # Backend components
-│   ├── api/                # API implementation
-│   ├── cli/                # Command-line interface
-│   ├── client/             # Client implementation
-│   └── core/               # Core functionality
-├── frontend/               # Frontend components
-│   ├── components/         # UI components
-│   ├── core/               # Core UI functionality
-│   ├── ui/                 # UI module
-│   ├── utils/              # UI utilities
-│   └── views/              # UI views/frames
-├── codegen/                # Legacy module (for backward compatibility)
-└── docs/                   # Documentation
-    ├── api/                # API documentation
-    ├── ui/                 # UI documentation
-    └── mockups/            # UI mockups
-```
+- `backend/`: Contains all backend functionality
+  - `api/`: API implementation
+  - `cli/`: Command-line interface
+  - `client/`: Client implementation for API endpoints
+  - `core/`: Core functionality shared across components
 
-## Documentation
+- `frontend/`: Contains all UI functionality
+  - `components/`: Reusable UI components
+  - `views/`: UI views and frames
+  - `core/`: Core UI functionality
+  - `utils/`: UI utilities
 
-All documentation is located in the `docs/` directory:
+- `docs/`: Documentation
+  - `api/`: API documentation
+  - `ui/`: UI documentation
 
-- [API Documentation](docs/api/api_endpoints.md)
-- [UI Documentation](docs/ui/codegen_ui_analysis.md)
-- [UI Mockups](docs/mockups/agent_management_interface.md)
+- `tests/`: Tests
+  - `backend/`: Backend tests
+  - `frontend/`: Frontend tests
+
+- `codegen/`: Compatibility layer for backward compatibility
 
 ## Installation
 
-### From PyPI
-
 ```bash
-pip install codegen-api
-```
-
-### From Source
-
-```bash
-git clone https://github.com/codegen-sh/codegen.py.git
-cd codegen.py
 pip install -e .
 ```
 
-### Development Installation
+For development:
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-### UI Installation
-
-```bash
-pip install -e ".[ui]"
-```
-
-### Async Installation
+For async support:
 
 ```bash
 pip install -e ".[async]"
@@ -71,62 +48,37 @@ pip install -e ".[async]"
 
 ## Usage
 
-### Command-Line Interface
+### Command Line Interface
 
 ```bash
-# Start the UI
-codegen
-
 # Start the API server
 codegen api
 
+# Start the UI application
+codegen ui
+
 # Configure client settings
-codegen config --api-key YOUR_API_KEY --api-url https://api.codegen.com/v1
+codegen config --api-key YOUR_API_KEY --api-url https://api.codegen.com
 ```
 
 ### Python API
 
 ```python
-from backend.core.config.client_config import ClientConfig
-from backend.core.config.presets import ConfigPresets
-from backend.client.endpoints.agents import CodegenClient
+from backend.client import CodegenClient
 
-# Configure the client
-config = ClientConfig()
-config.load_preset(ConfigPresets.DEVELOPMENT)
-config.api_token = "YOUR_API_KEY"
-
-# Create a client
-client = CodegenClient(config)
-
-# Get all agents
-agents = client.list_agents(org_id=123)
-print(agents)
+client = CodegenClient(api_token="YOUR_API_TOKEN")
+agents = client.agents.list()
 ```
 
-For backward compatibility, you can also use:
+### UI Application
 
 ```python
-from codegen import ClientConfig, ConfigPresets, CodegenClient
+import tkinter as tk
+from frontend.views import MainFrame
 
-# Configure the client
-config = ClientConfig()
-config.load_preset(ConfigPresets.DEVELOPMENT)
-config.api_token = "YOUR_API_KEY"
-
-# Create a client
-client = CodegenClient(config)
-
-# Get all agents
-agents = client.list_agents(org_id=123)
-print(agents)
-```
-
-### UI
-
-```bash
-# Start the UI
-codegen-ui
+root = tk.Tk()
+app = MainFrame(root)
+root.mainloop()
 ```
 
 ## Development
@@ -137,25 +89,16 @@ codegen-ui
 pytest
 ```
 
-### Code Formatting
+### Code Style
 
 ```bash
 black .
 isort .
-```
-
-### Type Checking
-
-```bash
+flake8
 mypy .
-```
-
-### Linting
-
-```bash
-flake8 .
 ```
 
 ## License
 
 MIT
+

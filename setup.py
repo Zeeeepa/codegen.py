@@ -16,7 +16,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/codegen-sh/codegen.py",
-    packages=find_packages(include=["backend*", "frontend*"]),
+    packages=find_packages(include=["backend*", "frontend*", "codegen*"]),
     install_requires=[
         "requests>=2.25.0",
         "typer>=0.4.0",
