@@ -9,12 +9,13 @@ This document provides comprehensive UI mockups for the Codegen Agent API UI imp
 3. [Agent Runs Tab](#agent-runs-tab)
 4. [Agent Run Detail View](#agent-run-detail-view)
 5. [Create New Run Dialog](#create-new-run-dialog)
-6. [Starred Runs Dashboard](#starred-runs-dashboard)
-7. [Projects Tab](#projects-tab)
-8. [Prompt Templates Management](#prompt-templates-management)
-9. [Settings Tab](#settings-tab)
-10. [CLI Integration](#cli-integration)
-11. [Function Flows](#function-flows)
+6. [ProRun Configuration](#prorun-configuration)
+7. [Starred Runs Dashboard](#starred-runs-dashboard)
+8. [Projects Tab](#projects-tab)
+9. [Prompt Templates Management](#prompt-templates-management)
+10. [Settings Tab](#settings-tab)
+11. [CLI Integration](#cli-integration)
+12. [Function Flows](#function-flows)
 
 ## Main Application Layout
 
@@ -216,9 +217,26 @@ When clicking on the "Create New Run" button, a dialog opens to create a new age
 |   Google:                                                    |
 |   - Gemini 2.5                                               |
 |                                                              |
-| [✓] ProRun Mode                                              |
+| [✓] ProRun Mode  [ProRun Configuration ⚙️]                   |
 |     Generate multiple responses and synthesize best result   |
 |     Number of candidates: [10 ▼]                             |
+|                                                              |
++--------------------------------------------------------------+
+|                                                              |
+| [Varied Agent Responses]                                     |
+|                                                              |
+| Agent 1: [OpenAI: GPT-5 ▼]                                   |
+| Agent 2: [ANTHROPIC: CLAUDE SONNET 4 ▼]                      |
+| Agent 3: [OpenAI: GPT-4.1 ▼]                                 |
+| Agent 4: [Google: Gemini 2.5 ▼]                              |
+| Agent 5: [ANTHROPIC: CLAUDE SONNET 3.7 ▼]                    |
+| Agent 6: [OpenAI: O3 ▼]                                      |
+| Agent 7: [ANTHROPIC: CLAUDE SONNET 3.5 ▼]                    |
+| Agent 8: [OpenAI: O4 Mini ▼]                                 |
+| Agent 9: [OpenAI: GPT-5 ▼]                                   |
+| Agent 10: [ANTHROPIC: CLAUDE SONNET 4 ▼]                     |
+|                                                              |
++--------------------------------------------------------------+
 |                                                              |
 | Prompt:                                                      |
 | +----------------------------------------------------------+ |
@@ -230,6 +248,44 @@ When clicking on the "Create New Run" button, a dialog opens to create a new age
 |                                                              |
 +--------------------------------------------------------------+
 | [Create Run] [Cancel] [CLI Command ▼]                        |
++--------------------------------------------------------------+
+```
+
+## ProRun Configuration
+
+When clicking on the "ProRun Configuration" button, a dialog opens with advanced ProRun settings:
+
+```
++--------------------------------------------------------------+
+|                     ProRun Configuration                     |
++--------------------------------------------------------------+
+|                                                              |
+| Synthesis Method:                                            |
+| (•) Simple (Direct synthesis of all candidates)              |
+| ( ) Tournament (Group candidates and synthesize winners)     |
+|                                                              |
+| Tournament Settings:                                         |
+|   Group Size: [10 ▼]                                         |
+|   Tournament Threshold: [20 ▼]                               |
+|                                                              |
+| Advanced Settings:                                           |
+| [✓] Enable parallel processing                               |
+| [✓] Auto-filter empty or invalid responses                   |
+| [ ] Include raw candidates in final output                   |
+| [✓] Use weighted voting for synthesis                        |
+|                                                              |
+| Synthesis Temperature: [0.2 ▼]                               |
+| Max Output Tokens: [30000 ▼]                                 |
+|                                                              |
+| Custom Synthesis Instructions:                               |
+| +----------------------------------------------------------+ |
+| | You are an expert editor. Synthesize ONE best answer     | |
+| | from the candidate answers provided, merging strengths,  | |
+| | correcting errors, and removing repetition.              | |
+| +----------------------------------------------------------+ |
+|                                                              |
++--------------------------------------------------------------+
+| [Save Configuration] [Reset to Defaults] [Cancel]            |
 +--------------------------------------------------------------+
 ```
 
@@ -479,6 +535,11 @@ The Settings tab allows configuring API tokens and other settings.
 | Default Model:                                               |
 | [CLAUDE SONNET 3.5 ▼]                                        |
 |                                                              |
+| ProRun Settings:                                             |
+| [✓] Enable ProRun by default                                 |
+| Default number of candidates: [10 ▼]                         |
+| Default synthesis method: [Simple ▼]                         |
+|                                                              |
 | CLI Integration:                                             |
 | [✓] Enable CLI integration                                   |
 | CLI Path: [/usr/local/bin/codegen                       ]    |
@@ -502,7 +563,7 @@ When performing actions in the UI, equivalent CLI commands are displayed:
 +--------------------------------------------------------------+
 | Equivalent CLI Command:                                      |
 | codegen agent --prompt "Fix the login form bug" --model      |
-| "claude-sonnet-3.5" --repo-id 123                            |
+| "claude-sonnet-3.5" --repo-id 123 --prorun --candidates 10   |
 +--------------------------------------------------------------+
 | [Copy to Clipboard] [Run in Terminal]                        |
 +--------------------------------------------------------------+
@@ -566,16 +627,23 @@ A dedicated CLI command builder is available for advanced users:
 
 ```
 +----------------+     +----------------+     +----------------+
-| User enables   |     | User sets      |     | User submits   |
-| ProRun mode    |---->| number of      |---->| the agent run  |
-| checkbox       |     | candidates     |     | form           |
+| User enables   |     | Varied Agent   |     | User configures|
+| ProRun mode    |---->| Responses      |---->| individual     |
+| checkbox       |     | section appears|     | agent models   |
 +----------------+     +----------------+     +----------------+
         |                                             |
         v                                             v
 +----------------+     +----------------+     +----------------+
-| API creates    |     | Multiple model |     | System         |
-| ProRun job     |<----| instances run  |<----| synthesizes    |
-| in backend     |     | in parallel    |     | best response  |
+| User clicks    |     | ProRun Config  |     | User adjusts   |
+| ProRun Config  |---->| dialog opens   |---->| synthesis      |
+| button         |     |                |     | settings       |
++----------------+     +----------------+     +----------------+
+        |                                             |
+        v                                             v
++----------------+     +----------------+     +----------------+
+| User submits   |     | Multiple model |     | System         |
+| the agent run  |---->| instances run  |---->| synthesizes    |
+| form           |     | in parallel    |     | best response  |
 +----------------+     +----------------+     +----------------+
         |
         v
